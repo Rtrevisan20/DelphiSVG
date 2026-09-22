@@ -95,7 +95,7 @@ implementation
 uses
   Winapi.CommCtrl, Winapi.GDIPAPI, Winapi.GDIPOBJ,
   Vcl.ComCtrls,
-  GDIPUtils, SVGTypes;
+  Painter, PainterGdiPlus, SVGTypes;
 
 { TSVGImageList }
 
@@ -233,7 +233,7 @@ begin
   begin
     SVG := FImages[Index].SVG;
     SVG.SVGOpacity := FOpacity / 255;
-    R := CalcRect(MakeRect(X, Y, Width, Height), SVG.Width, SVG.Height, baCenterCenter);
+    R := ToGPRectF(CalcRect(Painter.MakeRect(X, Y, Width, Height), SVG.Width, SVG.Height, baCenterCenter));
     SVG.PaintTo(DC, R, nil, 0);
     SVG.SVGOpacity := 1;
   end;
@@ -464,7 +464,7 @@ var
 
 begin
   SVG.SVGOpacity := FOpacity / 255;
-  R := CalcRect(MakeRect(0.0, 0, Width, Height), SVG.Width, SVG.Height, baCenterCenter);
+  R := ToGPRectF(CalcRect(Painter.MakeRect(0.0, 0, Width, Height), SVG.Width, SVG.Height, baCenterCenter));
 
   if GetFileVersion(comctl32) >= ComCtlVersionIE6 then
     Result := SVGToIcon32(SVG)

@@ -26,7 +26,7 @@ uses
   Winapi.Windows,
   Vcl.Themes, Vcl.Controls, Vcl.ActnList, Vcl.Graphics,
   SVGImageList,
-  Winapi.GDIPAPI, GDIPUtils,
+  Winapi.GDIPAPI, Painter, PainterGdiPlus,
   System.Types, System.Math;
 
 { TSVGSpeedButton }
@@ -175,7 +175,7 @@ begin
     R.Y := PaintRect.Top + Margin + Offset.Y + 1;
     R.Width := (PaintRect.Right - PaintRect.Left + 1) - 2 * FMargin;
     R.Height := (PaintRect.Bottom - PaintRect.Top + 1) - 2 * FMargin;
-    R := CalcRect(R, Image.Width, Image.Height, baCenterCenter);
+    R := ToGPRectF(CalcRect(ToPainterRect(R), Image.Width, Image.Height, baCenterCenter));
     Image.PaintTo(Canvas.Handle, R, nil, 0);
   end;
 end;

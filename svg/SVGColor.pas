@@ -38,7 +38,14 @@ function ConvertColor(Color: TColor; Alpha: Byte): Cardinal;
 implementation
 
 uses
-  Winapi.Windows, Winapi.GDIPAPI, System.SysUtils;
+  System.SysUtils;
+
+{ Builds a COLORREF value (0x00BBGGRR, low byte = red) the same way
+  Winapi.Windows.RGB does, so SVGColor stays RTL-portable. }
+function RGB(const R, G, B: Byte): TColor;
+begin
+  Result := R or (G shl 8) or (B shl 16);
+end;
 
 function IsHex(const S: string): Boolean;
 var
@@ -107,25 +114,25 @@ end;
 function DecodeRGB(const S: string): Integer;
 var
   RS, GS, BS: string;
-  RGB: string;
+  S2: string;
   R, B, G: Integer;
 begin
   Result := -1;
   if not ((Copy(S, 1, 4) = 'rgb(') and (S[Length(S)] = ')')) then
     Exit;
 
-  RGB := Copy(S, 5, Length(S) - 5);
-  RGB := Trim(RGB);
+  S2 := Copy(S, 5, Length(S) - 5);
+  S2 := Trim(S2);
 
-  RS := Copy(RGB, 1, Pos(',', RGB) - 1);
-  RGB := Copy(RGB, Pos(',', RGB) + 1, Length(RGB));
-  RGB := Trim(RGB);
+  RS := Copy(S2, 1, Pos(',', S2) - 1);
+  S2 := Copy(S2, Pos(',', S2) + 1, Length(S2));
+  S2 := Trim(S2);
 
-  GS := Copy(RGB, 1, Pos(',', RGB) - 1);
-  RGB := Copy(RGB, Pos(',', RGB) + 1, Length(RGB));
-  RGB := Trim(RGB);
+  GS := Copy(S2, 1, Pos(',', S2) - 1);
+  S2 := Copy(S2, Pos(',', S2) + 1, Length(S2));
+  S2 := Trim(S2);
 
-  BS := RGB;
+  BS := S2;
 
   R := DecodeToInt(RS);
   G := DecodeToInt(GS);
@@ -134,7 +141,7 @@ begin
   if (R = -1) or (G = -1) or (B = -1) then
     Exit;
 
-  Result := Winapi.Windows.RGB(R, G, B);
+  Result := RGB(R, G, B);
 end;
 
 function CharToInt(const Ch: Char): Integer;
@@ -209,6 +216,7 @@ begin
   end;
 end;
 
+{ Converts a COLORREF-style TColor into the painter's 0xAARRGGBB layout. }
 function ConvertColor(Color: TColor; Alpha: Byte): Cardinal;
 var
   R, G, B: Byte;
@@ -216,7 +224,8 @@ begin
   R := (Color and $000000FF);
   G := (Color and $0000FF00) shr 8;
   B := (Color and $00FF0000) shr 16;
-  Result := MakeColor(Alpha, R, G, B);
+  Result := (Cardinal(Alpha) shl 24) or (Cardinal(R) shl 16) or
+    (Cardinal(G) shl 8) or Cardinal(B);
 end;
 
 

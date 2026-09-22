@@ -45,6 +45,7 @@ contains
   GDIPKerning in '..\gdip\GDIPKerning.pas',
   GDIPOBJ2 in '..\gdip\GDIPOBJ2.pas',
   GDIPPathText in '..\gdip\GDIPPathText.pas',
-  GDIPUtils in '..\gdip\GDIPUtils.pas';
+  Painter in '..\painter\Painter.pas',
+  PainterGdiPlus in '..\painter\PainterGdiPlus.pas';
 
 end.

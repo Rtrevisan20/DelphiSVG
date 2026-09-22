@@ -36,6 +36,10 @@ type
   public
     constructor Create(const AColor: TPainterColor); reintroduce;
     destructor Destroy; override;
+    { Takes ownership of an existing GDI+ solid brush (used during task 2.1 to
+      bridge SVGPaint gradient/solid brushes into the painter model; task 2.2
+      builds native TPainter resources instead). }
+    class function Adopt(const ABrush: TGPSolidBrush): TPainterGdiPlusSolidBrush;
     function Clone: TPainterBrush; override;
     property GPBrush: TGPSolidBrush read FGP;
   end;
@@ -47,6 +51,8 @@ type
     constructor Create(const P1, P2: TPainterPoint;
       const C1, C2: TPainterColor); reintroduce;
     destructor Destroy; override;
+    class function Adopt(const ABrush: TGPLinearGradientBrush):
+      TPainterGdiPlusLinearGradientBrush;
     procedure SetInterpolationColors(const Colors: array of TPainterColor;
       const Positions: array of Single); override;
     procedure SetTransform(const Matrix: TPainterMatrix); override;
@@ -60,6 +66,8 @@ type
   public
     constructor Create(const ALeft, ATop, AWidth, AHeight: Single); reintroduce;
     destructor Destroy; override;
+    class function Adopt(const ABrush: TGPPathGradientBrush):
+      TPainterGdiPlusRadialGradientBrush;
     procedure SetCenterPoint(const Center: TPainterPoint); override;
     procedure SetInterpolationColors(const Colors: array of TPainterColor;
       const Positions: array of Single); override;
@@ -205,6 +213,47 @@ type
     property Graphics: TGPGraphics read FGraphics;
   end;
 
+  { GDI+ implementation of the parse-time measurement service (task 2.4).
+    Registered on startup by this unit; the svg\ core uses it to measure text
+    and build glyph paths before any rendering canvas exists. }
+  TPainterMeasureGdiPlus = class(TPainterMeasure)
+  private
+    function GetGpStringFormat(const Format: TPainterTextFormat): TGPStringFormat;
+  public
+    function CreateFontFamily(const AName: string): TPainterFontFamily; override;
+    function CreateFont(const Family: TPainterFontFamily; const Size: Single;
+      const Style: TPainterFontStyle): TPainterFont; override;
+    function MeasureText(const Text: string; const Font: TPainterFont): Single; override;
+    procedure MeasureString(const Text: string; const Font: TPainterFont;
+      const Origin: TPainterPoint; const Format: TPainterTextFormat;
+      var Rect: TPainterRect); override;
+    procedure AddTextToPath(const Path, UPath, SPath: TPainterPath;
+      const Text: string; const Family: TPainterFontFamily;
+      const Style: TPainterFontStyle; const Size: Single;
+      const Origin: TPainterPoint; const Format: TPainterTextFormat); override;
+    function AddPathText(const Path, GuidePath: TPainterPath;
+      const Text: string; const Family: TPainterFontFamily;
+      const Style: TPainterFontStyle; const Size: Single;
+      const Format: TPainterTextFormat; const Indent: Single;
+      const HasMatrix: Boolean; const AdditionalMatrix: TPainterMatrix): Single; override;
+    function GetPathLength(const Path: TPainterPath): Single; override;
+  end;
+
+  { Wraps an existing GDI+ brush (taking ownership) into a TPainterBrush so the
+    svg\ core can keep using SVGPaint's GDI+ gradient factories during task 2.1.
+    Returns nil (freeing ABrush) for unsupported brush types. }
+function GdiPlusBrushToPainter(const ABrush: TGPBrush): TPainterBrush;
+
+{ Returns the concrete GDI+ brush handle for a painter brush (nil if not a
+  GDI+ backed brush). }
+function GpBrushOf(const Brush: TPainterBrush): TGPBrush;
+
+{ Bridge for legacy GDI+ entry points (TSVG.RenderToBitmap/Icon, VCL
+  components) that still take/own GDI+ rects: converts between the portable
+  TPainterRect and the GDI+ rect type. }
+function ToGPRectF(const R: TPainterRect): TGPRectF;
+function ToPainterRect(const R: TGPRectF): TPainterRect;
+
 implementation
 
 { --- local helpers --------------------------------------------------------- }
@@ -264,9 +313,10 @@ end;
 function ToGdipLineJoin(const Join: TPainterLineJoin): TLineJoin;
 begin
   case Join of
-    pljMiter: Result := LineJoinMiter;
-    pljRound: Result := LineJoinRound;
-    pljBevel: Result := LineJoinBevel;
+    pljMiter:        Result := LineJoinMiter;
+    pljRound:        Result := LineJoinRound;
+    pljBevel:        Result := LineJoinBevel;
+    pljMiterClipped: Result := LineJoinMiterClipped;
   else
     Result := LineJoinMiter;
   end;
@@ -308,6 +358,19 @@ begin
     Result := TPainterGdiPlusRadialGradientBrush(Brush).GPBrush;
 end;
 
+function GdiPlusBrushToPainter(const ABrush: TGPBrush): TPainterBrush;
+begin
+  Result := nil;
+  if ABrush is TGPLinearGradientBrush then
+    Result := TPainterGdiPlusLinearGradientBrush.Adopt(TGPLinearGradientBrush(ABrush))
+  else if ABrush is TGPSolidBrush then
+    Result := TPainterGdiPlusSolidBrush.Adopt(TGPSolidBrush(ABrush))
+  else if ABrush is TGPPathGradientBrush then
+    Result := TPainterGdiPlusRadialGradientBrush.Adopt(TGPPathGradientBrush(ABrush))
+  else
+    ABrush.Free;
+end;
+
 { --- TPainterGdiPlusSolidBrush ---------------------------------------------- }
 constructor TPainterGdiPlusSolidBrush.Create(const AColor: TPainterColor);
 begin
@@ -315,6 +378,15 @@ begin
   FGP := TGPSolidBrush.Create(AColor);
   if FGP.GetLastStatus <> OK then
     SetStatusFailed;
+end;
+
+class function TPainterGdiPlusSolidBrush.Adopt(
+  const ABrush: TGPSolidBrush): TPainterGdiPlusSolidBrush;
+begin
+  Result := TPainterGdiPlusSolidBrush.Create($FF000000);
+  Result.FGP.Free;
+  Result.FGP := ABrush;
+  Result.SetStatusOK;
 end;
 
 destructor TPainterGdiPlusSolidBrush.Destroy;
@@ -342,6 +414,16 @@ destructor TPainterGdiPlusLinearGradientBrush.Destroy;
 begin
   FGP.Free;
   inherited;
+end;
+
+class function TPainterGdiPlusLinearGradientBrush.Adopt(
+  const ABrush: TGPLinearGradientBrush): TPainterGdiPlusLinearGradientBrush;
+begin
+  Result := TPainterGdiPlusLinearGradientBrush.Create(
+    Painter.MakePoint(0, 0), Painter.MakePoint(1, 1), $FF000000, $FF000000);
+  Result.FGP.Free;
+  Result.FGP := ABrush;
+  Result.SetStatusOK;
 end;
 
 procedure TPainterGdiPlusLinearGradientBrush.SetInterpolationColors(
@@ -393,6 +475,15 @@ destructor TPainterGdiPlusRadialGradientBrush.Destroy;
 begin
   FGP.Free;
   inherited;
+end;
+
+class function TPainterGdiPlusRadialGradientBrush.Adopt(
+  const ABrush: TGPPathGradientBrush): TPainterGdiPlusRadialGradientBrush;
+begin
+  Result := TPainterGdiPlusRadialGradientBrush.Create(0, 0, 1, 1);
+  Result.FGP.Free;
+  Result.FGP := ABrush;
+  Result.SetStatusOK;
 end;
 
 procedure TPainterGdiPlusRadialGradientBrush.SetCenterPoint(
@@ -917,5 +1008,169 @@ function TPainterGdiPlus.GetPathLength(const Path: TPainterPath): Single;
 begin
   Result := TGPPathText.GetPathLength(TPainterGdiPlusPath(Path).GPPath);
 end;
+
+{ --- TPainterMeasureGdiPlus --------------------------------------------------- }
+
+function TPainterMeasureGdiPlus.GetGpStringFormat(
+  const Format: TPainterTextFormat): TGPStringFormat;
+begin
+  Result := MakeGdiStringFormat(Format);
+end;
+
+function TPainterMeasureGdiPlus.CreateFontFamily(
+  const AName: string): TPainterFontFamily;
+begin
+  Result := TPainterGdiPlusFontFamily.Create(AName);
+end;
+
+function TPainterMeasureGdiPlus.CreateFont(const Family: TPainterFontFamily;
+  const Size: Single; const Style: TPainterFontStyle): TPainterFont;
+begin
+  Result := TPainterGdiPlusFont.Create(Family, Size, Style);
+end;
+
+function TPainterMeasureGdiPlus.MeasureText(const Text: string;
+  const Font: TPainterFont): Single;
+begin
+  Result := KerningText.MeasureText(Text, TPainterGdiPlusFont(Font).GPFont);
+end;
+
+procedure TPainterMeasureGdiPlus.MeasureString(const Text: string;
+  const Font: TPainterFont; const Origin: TPainterPoint;
+  const Format: TPainterTextFormat; var Rect: TPainterRect);
+var
+  DC: HDC;
+  G: TGPGraphics;
+  SF: TGPStringFormat;
+  R: TGPRectF;
+begin
+  DC := GetDC(0);
+  try
+    G := TGPGraphics.Create(DC);
+    try
+      SF := GetGpStringFormat(Format);
+      try
+        G.MeasureString(Text, -1, TPainterGdiPlusFont(Font).GPFont,
+          MakeGpPointF(Origin), SF, R);
+      finally
+        SF.Free;
+      end;
+    finally
+      G.Free;
+    end;
+  finally
+    ReleaseDC(0, DC);
+  end;
+  Rect := Painter.MakeRect(R.X, R.Y, R.Width, R.Height);
+end;
+
+procedure TPainterMeasureGdiPlus.AddTextToPath(const Path, UPath,
+  SPath: TPainterPath; const Text: string; const Family: TPainterFontFamily;
+  const Style: TPainterFontStyle; const Size: Single;
+  const Origin: TPainterPoint; const Format: TPainterTextFormat);
+
+  function PathOf(const P: TPainterPath): TGPGraphicsPath;
+  begin
+    if Assigned(P) then
+      Result := TPainterGdiPlusPath(P).GPPath
+    else
+      Result := nil;
+  end;
+
+var
+  SF: TGPStringFormat;
+begin
+  if Text = '' then
+    Exit;
+  SF := GetGpStringFormat(Format);
+  try
+    KerningText.AddToPath(TPainterGdiPlusPath(Path).GPPath,
+      PathOf(UPath), PathOf(SPath), Text, TPainterGdiPlusFontFamily(Family).GPFontFamily,
+      FontStyleToGdiPlus(Style), Size, MakeGpPointF(Origin), SF);
+  finally
+    SF.Free;
+  end;
+end;
+
+function TPainterMeasureGdiPlus.AddPathText(const Path, GuidePath: TPainterPath;
+  const Text: string; const Family: TPainterFontFamily;
+  const Style: TPainterFontStyle; const Size: Single;
+  const Format: TPainterTextFormat; const Indent: Single;
+  const HasMatrix: Boolean; const AdditionalMatrix: TPainterMatrix): Single;
+var
+  PT: TGPPathText;
+  M: TGPMatrix;
+  SF: TGPStringFormat;
+begin
+  if Text = '' then
+  begin
+    Result := 0;
+    Exit;
+  end;
+  PT := TGPPathText.Create(TPainterGdiPlusPath(GuidePath).GPPath);
+  try
+    M := nil;
+    if HasMatrix then
+      M := MakeGpMatrix(AdditionalMatrix);
+    PT.AdditionalMatrix := M;
+    SF := GetGpStringFormat(Format);
+    try
+      Result := PT.AddPathText(TPainterGdiPlusPath(Path).GPPath, Text, Indent,
+        TPainterGdiPlusFontFamily(Family).GPFontFamily,
+        FontStyleToGdiPlus(Style), Size, SF);
+    finally
+      SF.Free;
+    end;
+    M.Free;
+  finally
+    PT.Free;
+  end;
+end;
+
+function TPainterMeasureGdiPlus.GetPathLength(const Path: TPainterPath): Single;
+begin
+  Result := TGPPathText.GetPathLength(TPainterGdiPlusPath(Path).GPPath);
+end;
+
+function ToGPRectF(const R: TPainterRect): TGPRectF;
+begin
+  Result.X := R.X;
+  Result.Y := R.Y;
+  Result.Width := R.Width;
+  Result.Height := R.Height;
+end;
+
+function ToPainterRect(const R: TGPRectF): TPainterRect;
+begin
+  Result.X := R.X;
+  Result.Y := R.Y;
+  Result.Width := R.Width;
+  Result.Height := R.Height;
+end;
+
+{ --- parse-time factory registrations (task 2.5) ----------------------------- }
+
+function CreateGdiPlusPath: TPainterPath;
+begin
+  Result := TPainterGdiPlusPath.Create;
+  if not Result.GetLastStatus then
+  begin
+    Result.Free;
+    Result := nil;
+  end;
+end;
+
+function CreateGdiPlusImage(const Stream: TStream): TPainterImage;
+begin
+  Result := TPainterGdiPlusImage.CreateFromStream(Stream);
+end;
+
+initialization
+  RegisterPainterMeasure(TPainterMeasureGdiPlus.Create);
+  RegisterPainterPathFactory(CreateGdiPlusPath);
+  RegisterPainterImageFactory(CreateGdiPlusImage);
+
+finalization
+  RegisterPainterMeasure(nil);
 
 end.

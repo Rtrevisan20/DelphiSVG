@@ -20,9 +20,8 @@ unit SVGPath;
 interface
 
 uses
-  Winapi.Windows, Winapi.GDIPOBJ,
   System.Types, System.Classes,
-  SVGTypes, SVG;
+  SVGTypes, SVG, Painter;
 
 type
   TSVGPathElement = class(TSVGObject)
@@ -36,12 +35,12 @@ type
     function New(Parent: TSVGObject): TSVGObject; override;
   public
     function GetBounds: TRectF; virtual; abstract;
-    procedure AddToPath(Path: TGPGraphicsPath); virtual; abstract;
+    procedure AddToPath(Path: TPainterPath); virtual; abstract;
     procedure Read(SL: TStrings; var Position: Integer;
       Previous: TSVGPathElement); virtual;
 
-    procedure PaintToGraphics(Graphics: TGPGraphics); override;
-    procedure PaintToPath(Path: TGPGraphicsPath); override;
+    procedure PaintToGraphics(Graphics: TPainter); override;
+    procedure PaintToPath(Path: TPainterPath); override;
 
     property StartX: TFloat read FStartX write FStartX;
     property StartY: TFloat read FStartY write FStartY;
@@ -55,7 +54,7 @@ type
     function New(Parent: TSVGObject): TSVGObject; override;
   public
     function GetBounds: TRectF; override;
-    procedure AddToPath(Path: TGPGraphicsPath); override;
+    procedure AddToPath(Path: TPainterPath); override;
     procedure Read(SL: TStrings; var Position: Integer;
       Previous: TSVGPathElement); override;
   end;
@@ -66,7 +65,7 @@ type
     function New(Parent: TSVGObject): TSVGObject; override;
   public
     function GetBounds: TRectF; override;
-    procedure AddToPath(Path: TGPGraphicsPath); override;
+    procedure AddToPath(Path: TPainterPath); override;
     procedure Read(SL: TStrings; var Position: Integer;
       Previous: TSVGPathElement); override;
   end;
@@ -82,7 +81,7 @@ type
     function New(Parent: TSVGObject): TSVGObject; override;
   public
     function GetBounds: TRectF; override;
-    procedure AddToPath(Path: TGPGraphicsPath); override;
+    procedure AddToPath(Path: TPainterPath); override;
     procedure Read(SL: TStrings; var Position: Integer;
       Previous: TSVGPathElement); override;
 
@@ -104,7 +103,7 @@ type
     function New(Parent: TSVGObject): TSVGObject; override;
   public
     function GetBounds: TRectF; override;
-    procedure AddToPath(Path: TGPGraphicsPath); override;
+    procedure AddToPath(Path: TPainterPath); override;
     procedure Read(SL: TStrings; var Position: Integer;
       Previous: TSVGPathElement); override;
 
@@ -122,7 +121,7 @@ type
     function New(Parent: TSVGObject): TSVGObject; override;
   public
     function GetBounds: TRectF; override;
-    procedure AddToPath(Path: TGPGraphicsPath); override;
+    procedure AddToPath(Path: TPainterPath); override;
     procedure Read(SL: TStrings; var Position: Integer;
       Previous: TSVGPathElement); override;
   end;
@@ -131,10 +130,25 @@ implementation
 
 uses
   System.SysUtils, System.Math,
-  Winapi.GDIPAPI,
   SVGCommon, SVGParse;
 
 // TSVGPathElement
+
+{ Affine rotation about an arbitrary center, equivalent to GDI+'s
+  Matrix.RotateAt:  T(cx,cy) * R(Angle) * T(-cx,-cy).
+  Row-vector convention (p' = p*M, apply left factor first), so the
+  composition order is T(-c) first, then R, then T(c). }
+function RotateAtMatrix(const Angle: Single; const CX, CY: Single): TPainterMatrix;
+var
+  A: Single;
+  R, T1, T2: TPainterMatrix;
+begin
+  A := DegToRad(Angle);
+  R := MakeMatrix(Cos(A), Sin(A), -Sin(A), Cos(A), 0, 0);
+  T1 := MakeMatrix(1, 0, 0, 1, CX, CY);
+  T2 := MakeMatrix(1, 0, 0, 1, -CX, -CY);
+  Result := MatrixMultiply(MatrixMultiply(T2, R), T1);
+end;
 
 procedure TSVGPathElement.AssignTo(Dest: TPersistent);
 begin
@@ -163,11 +177,11 @@ begin
   end;
 end;
 
-procedure TSVGPathElement.PaintToGraphics(Graphics: TGPGraphics);
+procedure TSVGPathElement.PaintToGraphics(Graphics: TPainter);
 begin
 end;
 
-procedure TSVGPathElement.PaintToPath(Path: TGPGraphicsPath);
+procedure TSVGPathElement.PaintToPath(Path: TPainterPath);
 begin
 end;
 
@@ -186,7 +200,7 @@ begin
   Result := TSVGPathMove.Create(Parent);
 end;
 
-procedure TSVGPathMove.AddToPath(Path: TGPGraphicsPath);
+procedure TSVGPathMove.AddToPath(Path: TPainterPath);
 begin
   Path.StartFigure;
 end;
@@ -225,7 +239,7 @@ begin
   Result := TSVGPathLine.Create(Parent);
 end;
 
-procedure TSVGPathLine.AddToPath(Path: TGPGraphicsPath);
+procedure TSVGPathLine.AddToPath(Path: TPainterPath);
 begin
   Path.AddLine(FStartX, FStartY, FStopX, FStopY);
 end;
@@ -311,7 +325,7 @@ begin
   Result := TSVGPathCurve.Create(Parent);
 end;
 
-procedure TSVGPathCurve.AddToPath(Path: TGPGraphicsPath);
+procedure TSVGPathCurve.AddToPath(Path: TPainterPath);
 begin
   Path.AddBezier(FStartX, FStartY, FControl1X, FControl1Y,
     FControl2X, FControl2Y, FStopX, FStopY);
@@ -446,9 +460,9 @@ begin
   Result := TSVGPathEllipticArc.Create(Parent);
 end;
 
-procedure TSVGPathEllipticArc.AddToPath(Path: TGPGraphicsPath);
+procedure TSVGPathEllipticArc.AddToPath(Path: TPainterPath);
 var
-  R: TGPRectF;
+  R: TPainterRect;
   X1, Y1: TFloat;
   DX2, DY2: TFloat;
   Angle: TFloat;
@@ -478,9 +492,8 @@ var
   n: TFloat;
   AngleStart: TFloat;
   AngleExtent: TFloat;
-  ArcPath: TGPGraphicsPath;
-  Matrix: TGPMatrix;
-  Center: TGPPointF;
+  ArcPath: TPainterPath;
+  RotMatrix: TPainterMatrix;
 begin
   if (FStartX = FStopX) and (FStartY = FStopY) then
     Exit;
@@ -582,18 +595,13 @@ begin
   R.width := LRX * 2.0;
   R.height := LRY * 2.0;
 
-  ArcPath := TGPGraphicsPath.Create;
+  ArcPath := NewSVGPath;
   try
-    ArcPath.AddArc(R, AngleStart, AngleExtent);
-    Matrix := TGPMatrix.Create;
-    try
-      Center.X := cx;
-      Center.Y := cy;
-      Matrix.RotateAt(FXRot, Center);
-      ArcPath.Transform(Matrix);
-    finally
-      Matrix.Free;
-    end;
+    ArcPath.AddArc(R.X, R.Y, R.Width, R.Height, AngleStart, AngleExtent);
+    // Rotate the arc about its center (SVG transform semantics: positive
+    // angles rotate clockwise in screen coordinates, same as GDI+ RotateAt).
+    RotMatrix := RotateAtMatrix(FXRot, cx, cy);
+    ArcPath.Transform(RotMatrix);
     Path.AddPath(ArcPath, True);
   finally
     ArcPath.Free;
@@ -685,7 +693,7 @@ begin
   end;
 end;
 
-procedure TSVGPathClose.AddToPath(Path: TGPGraphicsPath);
+procedure TSVGPathClose.AddToPath(Path: TPainterPath);
 begin
   Path.CloseFigure;
 end;

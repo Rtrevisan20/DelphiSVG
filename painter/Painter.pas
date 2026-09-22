@@ -54,7 +54,7 @@ type
   TPainterFillMode = (pfmAlternate, pfmWinding);
   TPainterLineCap  = (plcFlat, plcRound, plcSquare);
   TPainterDashCap  = (pdcFlat, pdcRound);
-  TPainterLineJoin = (pljMiter, pljRound, pljBevel);
+  TPainterLineJoin = (pljMiter, pljRound, pljBevel, pljMiterClipped);
   TPainterDashStyle = (pdsSolid, pdsCustom);
 
   { Text dekorations / font style bits, equivalent to the GDI+ TFontStyle
@@ -77,6 +77,12 @@ type
   EPainterError = class(Exception)
   end;
 
+  { Rect alignment mode used by CalcRect to fit an aspect-locked rectangle
+    (portable version of the legacy GDIPUtils.TBoxAlignment). }
+  TBoxAlignment = (baTopLeft, baTopCenter, baTopRight,
+    baCenterLeft, baCenterCenter, baCenterRight,
+    baBottomLeft, baBottomCenter, baBottomRight);
+
   { Constructors / helpers --------------------------------------------------- }
   function MakePoint(const X, Y: Single): TPainterPoint; overload;
   function MakeRect(const X, Y, W, H: Single): TPainterRect; overload;
@@ -87,6 +93,11 @@ type
   function PainterColorOpacity(const Color: TPainterColor; const Opacity: Single): TPainterColor;
   function MatrixMultiply(const M1, M2: TPainterMatrix): TPainterMatrix;
   function MatrixTransformPoint(const M: TPainterMatrix; const P: TPainterPoint): TPainterPoint;
+
+  { Fits a rectangle of Width x Height (aspect locked) aligned inside Bounds,
+    then offsets by Bounds.X/Y. Portable version of legacy GDIPUtils.CalcRect. }
+  function CalcRect(const Bounds: TPainterRect; const Width, Height: Double;
+    const Alignment: TBoxAlignment): TPainterRect;
 
 type
   { Base class for all painter resources (pen, brush, path, font, image).
@@ -276,7 +287,145 @@ type
     function GetPathLength(const Path: TPainterPath): Single; virtual; abstract;
   end;
 
+  { Measurement service used while parsing, before any rendering canvas
+    exists (font creation, kerning-aware text measurement and glyph-path
+    building). Each backend registers a concrete implementation with
+    RegisterPainterMeasure; the svg\ core calls PainterMeasure directly.
+    This is why the core never has to build a canvas at parse time. }
+  TPainterMeasure = class
+  public
+    constructor Create; virtual;
+    function CreateFontFamily(const AName: string): TPainterFontFamily; virtual; abstract;
+    function CreateFont(const Family: TPainterFontFamily; const Size: Single;
+      const Style: TPainterFontStyle): TPainterFont; virtual; abstract;
+    function CreateTextFormat(const GenericTypographic,
+      MeasureTrailingSpaces: Boolean): TPainterTextFormat; virtual;
+    function MeasureText(const Text: string; const Font: TPainterFont): Single; virtual; abstract;
+    procedure MeasureString(const Text: string; const Font: TPainterFont;
+      const Origin: TPainterPoint; const Format: TPainterTextFormat;
+      var Rect: TPainterRect); virtual; abstract;
+    { Builds the glyph shapes of Text into Path, and the underline/strikeout
+      rectangles into UPath/SPath when those are assigned (the heritage of the
+      3-path GDI+ AddToPath variant the core used). }
+    procedure AddTextToPath(const Path, UPath, SPath: TPainterPath;
+      const Text: string; const Family: TPainterFontFamily;
+      const Style: TPainterFontStyle; const Size: Single;
+      const Origin: TPainterPoint; const Format: TPainterTextFormat); virtual; abstract;
+    { Positions glyphs of Text along GuidePath (SVG <textPath>); a per-glyph
+      additional matrix is applied only when HasMatrix is True. Returns the
+      last position along the guide path. }
+    function AddPathText(const Path, GuidePath: TPainterPath;
+      const Text: string; const Family: TPainterFontFamily;
+      const Style: TPainterFontStyle; const Size: Single;
+      const Format: TPainterTextFormat; const Indent: Single;
+      const HasMatrix: Boolean; const AdditionalMatrix: TPainterMatrix): Single; virtual; abstract;
+    { Length of a flattened path (used by textPath offsets). }
+    function GetPathLength(const Path: TPainterPath): Single; virtual; abstract;
+  end;
+
+function PainterMeasure: TPainterMeasure;
+procedure RegisterPainterMeasure(const Measure: TPainterMeasure);
+
+{ Backend-registered factories used to create painter resources at parse time,
+  when no TPainter instance exists. The svg\ core calls NewSVGPath /
+  NewSVGImage; each backend registers its concrete creators on startup (GDI+
+  and LCL both create paths/images without a canvas). }
+type
+  TPainterPathFactory = function: TPainterPath;
+  TPainterImageFactory = function(const Stream: TStream): TPainterImage;
+
+procedure RegisterPainterPathFactory(const AFactory: TPainterPathFactory);
+procedure RegisterPainterImageFactory(const AFactory: TPainterImageFactory);
+function NewSVGPath: TPainterPath;
+function NewSVGImage(const Stream: TStream): TPainterImage;
+
 implementation
+
+var
+  FPainterMeasure: TPainterMeasure;
+  FPathFactory: TPainterPathFactory;
+  FImageFactory: TPainterImageFactory;
+
+function PainterMeasure: TPainterMeasure;
+begin
+  Result := FPainterMeasure;
+end;
+
+procedure RegisterPainterMeasure(const Measure: TPainterMeasure);
+begin
+  if Assigned(FPainterMeasure) and (FPainterMeasure <> Measure) then
+    FPainterMeasure.Free;
+  FPainterMeasure := Measure;
+end;
+
+{ --- parse-time backend factories ------------------------------------------ }
+
+procedure RegisterPainterPathFactory(const AFactory: TPainterPathFactory);
+begin
+  FPathFactory := AFactory;
+end;
+
+procedure RegisterPainterImageFactory(const AFactory: TPainterImageFactory);
+begin
+  FImageFactory := AFactory;
+end;
+
+function NewSVGPath: TPainterPath;
+begin
+  Result := nil;
+  if Assigned(FPathFactory) then
+    Result := FPathFactory;
+end;
+
+function NewSVGImage(const Stream: TStream): TPainterImage;
+begin
+  Result := nil;
+  if Assigned(FImageFactory) then
+    Result := FImageFactory(Stream);
+end;
+
+function CalcRect(const Bounds: TPainterRect; const Width, Height: Double;
+  const Alignment: TBoxAlignment): TPainterRect;
+var
+  R: Double;
+begin
+  if Height > 0 then
+    R := Width / Height
+  else
+    R := 1;
+
+  if (Bounds.Height <> 0) and
+     (Bounds.Width / Bounds.Height > R) then
+  begin
+    Result.Width := Bounds.Height * R;
+    Result.Height := Bounds.Height;
+  end else
+  begin
+    Result.Width := Bounds.Width;
+    Result.Height := Bounds.Width / R;
+  end;
+
+  case Alignment of
+    baTopCenter, baCenterCenter, baBottomCenter:
+      Result.X := (Bounds.Width - Result.Width) / 2;
+    baTopRight, baCenterRight, baBottomRight:
+      Result.X := Bounds.Width - Result.Width;
+    else
+      Result.X := 0;
+  end;
+
+  case Alignment of
+    baCenterLeft, baCenterCenter, baCenterRight:
+      Result.Y := (Bounds.Height - Result.Height) / 2;
+    baBottomLeft, baBottomCenter, baBottomRight:
+      Result.Y := Bounds.Height - Result.Height;
+    else
+      Result.Y := 0;
+  end;
+
+  Result.X := Result.X + Bounds.X;
+  Result.Y := Result.Y + Bounds.Y;
+end;
 
 { --- helper functions ------------------------------------------------------ }
 
@@ -451,6 +600,20 @@ begin
 end;
 
 function TPainter.CreateTextFormat(const GenericTypographic,
+  MeasureTrailingSpaces: Boolean): TPainterTextFormat;
+begin
+  Result.GenericTypographic := GenericTypographic;
+  Result.MeasureTrailingSpaces := MeasureTrailingSpaces;
+end;
+
+{ --- TPainterMeasure -------------------------------------------------------- }
+
+constructor TPainterMeasure.Create;
+begin
+  inherited Create;
+end;
+
+function TPainterMeasure.CreateTextFormat(const GenericTypographic,
   MeasureTrailingSpaces: Boolean): TPainterTextFormat;
 begin
   Result.GenericTypographic := GenericTypographic;

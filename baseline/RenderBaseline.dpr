@@ -15,7 +15,8 @@ uses
   Winapi.GDIPAPI,
   Winapi.GDIPOBJ,
   SVG,
-  GDIPUtils;
+  Painter,
+  PainterGdiPlus;
 
 const
   CPngEncoder: TGUID = '{557CF406-1A04-11D3-9A73-0000F81EF32E}';
@@ -84,9 +85,9 @@ begin
       try
         Graphics.SetSmoothingMode(SmoothingModeAntiAlias);
         Graphics.Clear(MakeColor(255, 255, 255));
-        R := CalcRect(MakeRect(0.0, 0, W, H), SVG.Width * Scale, SVG.Height * Scale, baCenterCenter);
+        R := ToGPRectF(CalcRect(Painter.MakeRect(0.0, 0, W, H), SVG.Width * Scale, SVG.Height * Scale, baCenterCenter));
         if (SVG.Width <= 0) or (SVG.Height <= 0) then
-          R := MakeRect(0.0, 0, W, H);
+          R := Winapi.GDIPAPI.MakeRect(0.0, 0, W, H);
         SVG.PaintTo(Graphics, R, nil, 0);
       finally
         Graphics.Free;

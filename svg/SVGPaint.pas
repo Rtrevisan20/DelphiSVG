@@ -20,14 +20,14 @@ unit SVGPaint;
 interface
 
 uses
-  Winapi.Windows, Winapi.GDIPOBJ, Winapi.GDIPAPI,
   System.UITypes, System.Classes,
   Xml.XmlIntf,
+  Painter,
   SVGTypes, SVG;
 
 type
   TColors = record
-    Colors: packed array of ARGB;
+    Colors: packed array of TPainterColor;
     Positions: packed array of Single;
     Count: Integer;
   end;
@@ -43,8 +43,8 @@ type
     procedure AssignTo(Dest: TPersistent); override;
   public
     procedure ReadIn(const Node: IXMLNode); override;
-    procedure PaintToGraphics(Graphics: TGPGraphics); override;
-    procedure PaintToPath(Path: TGPGraphicsPath); override;
+    procedure PaintToGraphics(Graphics: TPainter); override;
+    procedure PaintToPath(Path: TPainterPath); override;
 
     property Stop: TFloat read FStop write FStop;
     property StopColor: TColor read FStopColor write FStopColor;
@@ -58,9 +58,10 @@ type
     function New(Parent: TSVGObject): TSVGObject; override;
   public
     procedure ReadIn(const Node: IXMLNode); override;
-    function GetBrush(Alpha: Byte; const DestObject: TSVGBasic): TGPBrush; virtual; abstract;
-    procedure PaintToGraphics(Graphics: TGPGraphics); override;
-    procedure PaintToPath(Path: TGPGraphicsPath); override;
+    function GetBrush(Alpha: Byte; const DestObject: TSVGBasic;
+      const P: TPainter): TPainterBrush; virtual; abstract;
+    procedure PaintToGraphics(Graphics: TPainter); override;
+    procedure PaintToPath(Path: TPainterPath); override;
   end;
 
   TSVGGradient = class(TSVGFiller)
@@ -84,7 +85,8 @@ type
     procedure AssignTo(Dest: TPersistent); override;
   public
     procedure ReadIn(const Node: IXMLNode); override;
-    function GetBrush(Alpha: Byte; const DestObject: TSVGBasic): TGPBrush; override;
+    function GetBrush(Alpha: Byte; const DestObject: TSVGBasic;
+      const P: TPainter): TPainterBrush; override;
 
     property X1: TFloat read FX1 write FX1;
     property Y1: TFloat read FY1 write FY1;
@@ -105,7 +107,8 @@ type
   public
     procedure Clear; override;
     procedure ReadIn(const Node: IXMLNode); override;
-    function GetBrush(Alpha: Byte; const DestObject: TSVGBasic): TGPBrush; override;
+    function GetBrush(Alpha: Byte; const DestObject: TSVGBasic;
+      const P: TPainter): TPainterBrush; override;
 
     property CX: TFloat read FCX write FCX;
     property CY: TFloat read FCY write FCY;
@@ -119,12 +122,23 @@ implementation
 
 uses
   System.SysUtils, System.Math.Vectors,
-  SVGParse, SVGStyle, SVGProperties, SVGColor,
-  GDIPUtils;
+  SVGParse, SVGStyle, SVGProperties, SVGColor;
+
+{ Maps the core's System.Math.Vectors TMatrix to the painter matrix model
+  (m33 is implied = 1), the same convention SVG.pas' ToPainterMatrix uses. }
+function MatrixToPainter(const M: TMatrix): TPainterMatrix;
+begin
+  Result.m11 := M.m11;
+  Result.m12 := M.m12;
+  Result.m21 := M.m21;
+  Result.m22 := M.m22;
+  Result.m31 := M.m31;
+  Result.m32 := M.m32;
+end;
 
 // TSVGStop
 
-procedure TSVGStop.PaintToPath(Path: TGPGraphicsPath);
+procedure TSVGStop.PaintToPath(Path: TPainterPath);
 begin
 end;
 
@@ -172,13 +186,13 @@ begin
   Result := TSVGStop.Create(Parent);
 end;
 
-procedure TSVGStop.PaintToGraphics(Graphics: TGPGraphics);
+procedure TSVGStop.PaintToGraphics(Graphics: TPainter);
 begin
 end;
 
 // TSVGFiller
 
-procedure TSVGFiller.PaintToPath(Path: TGPGraphicsPath);
+procedure TSVGFiller.PaintToPath(Path: TPainterPath);
 begin
 end;           
 
@@ -193,7 +207,7 @@ begin
   Result := nil;
 end;
 
-procedure TSVGFiller.PaintToGraphics(Graphics: TGPGraphics);
+procedure TSVGFiller.PaintToGraphics(Graphics: TPainter);
 begin
 end;
 
@@ -258,31 +272,30 @@ begin
   end;
 end;
 
-function TSVGLinearGradient.GetBrush(Alpha: Byte; const DestObject: TSVGBasic): TGPBrush;
+function TSVGLinearGradient.GetBrush(Alpha: Byte; const DestObject: TSVGBasic;
+  const P: TPainter): TPainterBrush;
 var
-  Brush: TGPLinearGradientBrush;
-  TGP: TGPMatrix;
+  Brush: TPainterLinearGradientBrush;
   Colors: TColors;
 begin
   if Assigned(DestObject) and (FGradientUnits = guObjectBoundingBox) then
-    Brush := TGPLinearGradientBrush.Create(MakePoint(DestObject.X, DestObject.Y),
-      MakePoint(DestObject.X + DestObject.Width, DestObject.Y + DestObject.Height), 0, 0)
+    Brush := P.CreateLinearGradientBrush(
+      Painter.MakePoint(DestObject.X, DestObject.Y),
+      Painter.MakePoint(DestObject.X + DestObject.Width,
+        DestObject.Y + DestObject.Height), $FF000000, $FF000000)
   else
-    Brush := TGPLinearGradientBrush.Create(MakePoint(FX1, FY1), MakePoint(FX2, FY2), 0, 0);
+    Brush := P.CreateLinearGradientBrush(
+      Painter.MakePoint(FX1, FY1), Painter.MakePoint(FX2, FY2),
+      $FF000000, $FF000000);
 
   Colors := GetColors(Alpha);
 
-  Brush.SetInterpolationColors(PGPColor(Colors.Colors),
-    PSingle(Colors.Positions), Colors.Count);
+  Brush.SetInterpolationColors(Colors.Colors, Colors.Positions);
 
   Finalize(Colors);
 
   if PureMatrix.m33 = 1 then
-  begin
-    TGP := GetGPMatrix(PureMatrix);
-    Brush.SetTransform(TGP);
-    TGP.Free;
-  end;
+    Brush.SetTransform(MatrixToPainter(PureMatrix));
 
   Result := Brush;
 end;
@@ -324,36 +337,27 @@ begin
   LoadLength(Node, 'fy', FFY);
 end;
 
-function TSVGRadialGradient.GetBrush(Alpha: Byte; const DestObject: TSVGBasic): TGPBrush;
+function TSVGRadialGradient.GetBrush(Alpha: Byte; const DestObject: TSVGBasic;
+  const P: TPainter): TPainterBrush;
 var
-  Brush: TGPPathGradientBrush;
-  Path: TGPGraphicsPath;
-  TGP: TGPMatrix;
+  Brush: TPainterRadialGradientBrush;
   Colors: TColors;
 begin
-  Path := TGPGraphicsPath.Create;
-
   if Assigned(DestObject) and (FGradientUnits = guObjectBoundingBox) then
-    Path.AddEllipse(DestObject.X, DestObject.Y, DestObject.Width, DestObject.Height)
+    Brush := P.CreateRadialGradientBrush(DestObject.X, DestObject.Y,
+      DestObject.Width, DestObject.Height)
   else
-    Path.AddEllipse(FCX - FR, FCY - FR, 2 * FR, 2 * FR);
-
-  Brush := TGPPathGradientBrush.Create(Path);
-  Path.Free;
+    Brush := P.CreateRadialGradientBrush(FCX - FR, FCY - FR, 2 * FR, 2 * FR);
 
   Colors := GetColors(Alpha);
-  Brush.SetInterpolationColors(PARGB(Colors.Colors), PSingle(Colors.Positions), Colors.Count);
+  Brush.SetInterpolationColors(Colors.Colors, Colors.Positions);
 
   Finalize(Colors);
 
-  Brush.SetCenterPoint(MakePoint(FFX, FFY));
+  Brush.SetCenterPoint(Painter.MakePoint(FFX, FFY));
 
   if PureMatrix.m33 = 1 then
-  begin
-    TGP := GetGPMatrix(PureMatrix);
-    Brush.SetTransform(TGP);
-    TGP.Free;
-  end;
+    Brush.SetTransform(MatrixToPainter(PureMatrix));
 
   Result := Brush;
 end;

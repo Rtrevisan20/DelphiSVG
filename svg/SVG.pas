@@ -33,8 +33,7 @@ uses
   Winapi.Windows, Winapi.GDIPOBJ, Winapi.GDIPAPI,
   System.Classes, System.Math, System.NetEncoding, System.Math.Vectors, System.Types,
   Xml.XmlIntf,
-  GDIPOBJ2, GDIPKerning, GDIPPathText,
-  SVGTypes, SVGStyle;
+  SVGTypes, SVGStyle, Painter;
 
 type
   TSVG = class;
@@ -78,8 +77,8 @@ type
     function FindByType(Typ: TClass; Previous: TSVGObject = nil): TSVGObject;
     procedure CalculateMatrices;
 
-    procedure PaintToGraphics(Graphics: TGPGraphics); virtual; abstract;
-    procedure PaintToPath(Path: TGPGraphicsPath); virtual; abstract;
+    procedure PaintToGraphics(Graphics: TPainter); virtual; abstract;
+    procedure PaintToPath(Path: TPainterPath); virtual; abstract;
     procedure ReadIn(const Node: IXMLNode); virtual;
 
     property Items[const Index: Integer]: TSVGObject read GetItem write SetItem; default;
@@ -134,8 +133,8 @@ type
     FFontStyle: Integer;
     FTextDecoration: TTextDecoration;
 
-    FPath: TGPGraphicsPath2;
-    FClipPath: TGPGraphicsPath;
+    FPath: TPainterPath;
+    FClipPath: TPainterPath;
     FX: TFloat;
     FY: TFloat;
     FWidth: TFloat;
@@ -183,23 +182,24 @@ type
     function New(Parent: TSVGObject): TSVGObject; override;
     procedure ReadStyle(Style: TStyle); virtual;
     procedure ConstructPath; virtual;
-    function GetClipPath: TGPGraphicsPath;
+    function GetClipPath: TPainterPath;
     procedure CalcClipPath;
 
-    function GetFillBrush: TGPBrush;
-    function GetStrokeBrush: TGPBrush;
-    function GetStrokePen(const StrokeBrush: TGPBrush): TGPPen;
+    function GetFillBrush(const P: TPainter): TPainterBrush;
+    function GetStrokeBrush(const P: TPainter): TPainterBrush;
+    function GetStrokePen(const P: TPainter;
+      const StrokeBrush: TPainterBrush): TPainterPen;
 
-    procedure BeforePaint(const Graphics: TGPGraphics; const Brush: TGPBrush;
-      const Pen: TGPPen); virtual;
-    procedure AfterPaint(const Graphics: TGPGraphics; const Brush: TGPBrush;
-      const Pen: TGPPen); virtual;
+    procedure BeforePaint(const Graphics: TPainter; const Brush: TPainterBrush;
+      const Pen: TPainterPen); virtual;
+    procedure AfterPaint(const Graphics: TPainter; const Brush: TPainterBrush;
+      const Pen: TPainterPen); virtual;
   public
     constructor Create; override;
     procedure Clear; override;
-    procedure PaintToGraphics(Graphics: TGPGraphics); override;
+    procedure PaintToGraphics(Graphics: TPainter); override;
 
-    procedure PaintToPath(Path: TGPGraphicsPath); override;
+    procedure PaintToPath(Path: TPainterPath); override;
     procedure ReadIn(const Node: IXMLNode); override;
 
     property Root: TSVG read GetRoot;
@@ -249,7 +249,7 @@ type
 
     procedure SetSVGOpacity(Opacity: TFloat);
     procedure SetAngle(Angle: TFloat);
-    procedure Paint(const Graphics: TGPGraphics; Rects: PRectArray;
+    procedure Paint(const Graphics: TPainter; Rects: PRectArray;
       RectCount: Integer);
     procedure CalcCompleteSize;
   private
@@ -326,8 +326,8 @@ type
     function New(Parent: TSVGObject): TSVGObject; override;
     procedure Construct;
   public
-    procedure PaintToPath(Path: TGPGraphicsPath); override;
-    procedure PaintToGraphics(Graphics: TGPGraphics); override;
+    procedure PaintToPath(Path: TPainterPath); override;
+    procedure PaintToGraphics(Graphics: TPainter); override;
     procedure Clear; override;
     procedure ReadIn(const Node: IXMLNode); override;
   end;
@@ -402,7 +402,7 @@ type
   TSVGImage = class(TSVGBasic)
   private
     FFileName: string;
-    FImage: TGPImage;
+    FImage: TPainterImage;
     FStream: TMemoryStream;
   protected
     procedure AssignTo(Dest: TPersistent); override;
@@ -411,7 +411,7 @@ type
   public
     constructor Create; override;
     procedure Clear; override;
-    procedure PaintToGraphics(Graphics: TGPGraphics); override;
+    procedure PaintToGraphics(Graphics: TPainter); override;
     procedure ReadIn(const Node: IXMLNode); override;
     property Data: TMemoryStream read FStream;
   end;
@@ -419,8 +419,8 @@ type
   TSVGCustomText = class(TSVGBasic)
   private
     FText: string;
-    FUnderlinePath: TGPGraphicsPath;
-    FStrikeOutPath: TGPGraphicsPath;
+    FUnderlinePath: TPainterPath;
+    FStrikeOutPath: TPainterPath;
 
     FFontHeight: TFloat;
     FDX: TFloat;
@@ -431,8 +431,8 @@ type
 
     function GetCompleteWidth: TFloat;
     procedure SetSize; virtual;
-    function GetFont: TGPFont;
-    function GetFontFamily(const FontName: string): TGPFontFamily;
+    function GetFont: TPainterFont;
+    function GetFontFamily(const FontName: string): TPainterFontFamily;
 
     function IsInTextPath: Boolean;
   protected
@@ -441,17 +441,17 @@ type
     procedure ConstructPath; override;
     procedure ParseNode(const Node: IXMLNode); virtual;
     procedure CalcObjectBounds; override;
-    procedure BeforePaint(const Graphics: TGPGraphics; const Brush: TGPBrush;
-      const Pen: TGPPen); override;
-    procedure AfterPaint(const Graphics: TGPGraphics; const Brush: TGPBrush;
-      const Pen: TGPPen); override;
+    procedure BeforePaint(const Graphics: TPainter; const Brush: TPainterBrush;
+      const Pen: TPainterPen); override;
+    procedure AfterPaint(const Graphics: TPainter; const Brush: TPainterBrush;
+      const Pen: TPainterPen); override;
 
     procedure ReadTextNodes(const Node: IXMLNode); virtual;
   public
     constructor Create; override;
     procedure Clear; override;
     procedure ReadIn(const Node: IXMLNode); override;
-    procedure PaintToGraphics(Graphics: TGPGraphics); override;
+    procedure PaintToGraphics(Graphics: TPainter); override;
 
     property DX: TFloat read FDX write FDX;
     property DY: TFloat read FDY write FDY;
@@ -488,17 +488,17 @@ type
 
   TSVGClipPath = class(TSVGBasic)
   private
-    FClipPath: TGPGraphicsPath;
+    FClipPath: TPainterPath;
   protected
     function New(Parent: TSVGObject): TSVGObject; override;
     procedure ConstructClipPath;
   public
     destructor Destroy; override;
     procedure Clear; override;
-    procedure PaintToPath(Path: TGPGraphicsPath); override;
-    procedure PaintToGraphics(Graphics: TGPGraphics); override;
+    procedure PaintToPath(Path: TPainterPath); override;
+    procedure PaintToGraphics(Graphics: TPainter); override;
     procedure ReadIn(const Node: IXMLNode); override;
-    function GetClipPath: TGPGraphicsPath;
+    function GetClipPath: TPainterPath;
   end;
 
 implementation
@@ -509,7 +509,88 @@ uses
 {$IFDEF MSWINDOWS}
   Xml.Win.msxmldom,
 {$ENDIF}
-  GDIPUtils, SVGParse, SVGProperties, SVGColor, SVGPaint, SVGPath, SVGCommon;
+  PainterGdiPlus, SVGParse, SVGProperties, SVGColor, SVGPaint, SVGPath, SVGCommon;
+
+{$REGION 'Painter bridge helpers (task 2.1)'}
+
+{ Maps the core's System.Math.Vectors TMatrix to the painter matrix model
+  (m33 is implied = 1, same convention GetGPMatrix uses with GDI+). }
+function ToPainterMatrix(const M: TMatrix): TPainterMatrix;
+begin
+  Result.m11 := M.m11;
+  Result.m12 := M.m12;
+  Result.m21 := M.m21;
+  Result.m22 := M.m22;
+  Result.m31 := M.m31;
+  Result.m32 := M.m32;
+end;
+
+function ToTMatrix(const M: TPainterMatrix): TMatrix;
+begin
+  Result.m11 := M.m11;
+  Result.m12 := M.m12;
+  Result.m21 := M.m21;
+  Result.m22 := M.m22;
+  Result.m31 := M.m31;
+  Result.m32 := M.m32;
+  Result.m13 := 0;
+  Result.m23 := 0;
+  Result.m33 := 1;
+end;
+
+function ToPainterLineCap(const V: TLineCap): TPainterLineCap;
+begin
+  case Ord(V) of
+    1: Result := plcSquare;
+    2: Result := plcRound;
+  else
+    Result := plcFlat;
+  end;
+end;
+
+function ToPainterDashCap(const V: TDashCap): TPainterDashCap;
+begin
+  case Ord(V) of
+    0: Result := pdcFlat;
+  else
+    Result := pdcRound;
+  end;
+end;
+
+function ToPainterLineJoin(const V: TLineJoin): TPainterLineJoin;
+begin
+  case Ord(V) of
+    1: Result := pljBevel;
+    2: Result := pljRound;
+    3: Result := pljMiterClipped;
+  else
+    Result := pljMiter;
+  end;
+end;
+
+{ Rounded rectangle geometry (mirrors gdip\GDIPOBJ2.AddRoundRect so every
+  painter backend gets it without a GDI+ dependency). }
+procedure AddRoundRectToPath(const Path: TPainterPath;
+  X, Y, Width, Height, RX, RY: Single);
+begin
+  if (RX <= 0) or (RY <= 0) or (Width <= 0) or (Height <= 0) then
+  begin
+    Path.AddRectangle(Painter.MakeRect(X, Y, Width, Height));
+    Exit;
+  end;
+
+  Path.AddLine(X + RX, Y, X + Width - RX, Y);
+  Path.AddArc(X + Width - 2 * RX, Y, 2 * RX, 2 * RY, 270, 90);
+  Path.AddLine(X + Width, Y + RY, X + Width, Y + Height - RY);
+  Path.AddArc(X + Width - 2 * RX, Y + Height - 2 * RY, 2 * RX, 2 * RY, 0, 90);
+  Path.AddLine(X + Width - RX, Y + Height, X + RX, Y + Height);
+  Path.AddArc(X, Y + Height - 2 * RY, 2 * RX, 2 * RY, 90, 90);
+  Path.AddLine(X, Y + Height - RY, X, Y + RY);
+  Path.AddArc(X, Y, 2 * RX, 2 * RY, 180, 90);
+  Path.CloseFigure;
+end;
+
+{$ENDREGION}
 
 {$REGION 'TSVGObject'}
 constructor TSVGObject.Create;
@@ -923,8 +1004,8 @@ begin
   FClipPath := nil;
 end;
 
-procedure TSVGBasic.BeforePaint(const Graphics: TGPGraphics;
-  const Brush: TGPBrush; const Pen: TGPPen);
+procedure TSVGBasic.BeforePaint(const Graphics: TPainter;
+  const Brush: TPainterBrush; const Pen: TPainterPen);
 begin
 end;
 
@@ -974,12 +1055,10 @@ begin
   FClipPath := nil;
 end;
 
-procedure TSVGBasic.PaintToGraphics(Graphics: TGPGraphics);
+procedure TSVGBasic.PaintToGraphics(Graphics: TPainter);
 var
-  Brush, StrokeBrush: TGPBrush;
-  Pen: TGPPen;
-
-  TGP: TGPMatrix;
+  Brush, StrokeBrush: TPainterBrush;
+  Pen: TPainterPen;
 
   ClipRoot: TSVGBasic;
 begin
@@ -996,42 +1075,30 @@ begin
       begin
         ClipRoot := TSVGBasic(GetRoot.FindByID(ClipURI));
         if Assigned(ClipRoot) then
-        begin
-          TGP := GetGPMatrix(ClipRoot.Matrix);
-          try
-            Graphics.SetTransform(TGP);
-          finally
-            TGP.Free;
-          end;
-        end;
+          Graphics.SetTransform(ToPainterMatrix(ClipRoot.Matrix));
       end;
       Graphics.SetClip(FClipPath);
       Graphics.ResetTransform;
     end;
 
-    TGP := GetGPMatrix(Matrix);
-    try
-      Graphics.SetTransform(TGP);
-    finally
-      TGP.Free;
-    end;
+    Graphics.SetTransform(ToPainterMatrix(Matrix));
 
     if FStyleChanged then
     begin
       UpdateStyle;
       FStyleChanged := False;
     end;
-    Brush := GetFillBrush;
+    Brush := GetFillBrush(Graphics);
     try
-      StrokeBrush := GetStrokeBrush;
-      Pen := GetStrokePen(StrokeBrush);
+      StrokeBrush := GetStrokeBrush(Graphics);
+      Pen := GetStrokePen(Graphics, StrokeBrush);
 
       try
         BeforePaint(Graphics, Brush, Pen);
-        if Assigned(Brush) and (Brush.GetLastStatus = OK) then
+        if Assigned(Brush) and Brush.GetLastStatus then
           Graphics.FillPath(Brush, FPath);
 
-        if Assigned(Pen) and (Pen.GetLastStatus = OK) then
+        if Assigned(Pen) and Pen.GetLastStatus then
           Graphics.DrawPath(Pen, FPath);
 
         AfterPaint(Graphics, Brush, Pen);
@@ -1049,21 +1116,16 @@ begin
   end;
 end;
 
-procedure TSVGBasic.PaintToPath(Path: TGPGraphicsPath);
+procedure TSVGBasic.PaintToPath(Path: TPainterPath);
 var
-  P: TGPGraphicsPath;
-  M: TGPMatrix;
+  P: TPainterPath;
 begin
   if FPath = nil then
     Exit;
   P := FPath.Clone;
 
   if Matrix.m33 = 1 then
-  begin
-    M := GetGPMatrix(Matrix);
-    P.Transform(M);
-    M.Free;
-  end;
+    P.Transform(ToPainterMatrix(Matrix));
 
   Path.AddPath(P, False);
   P.Free;
@@ -1137,8 +1199,8 @@ begin
   UpdateStyle;
 end;
 
-procedure TSVGBasic.AfterPaint(const Graphics: TGPGraphics;
-  const Brush: TGPBrush; const Pen: TGPPen);
+procedure TSVGBasic.AfterPaint(const Graphics: TPainter;
+  const Brush: TPainterBrush; const Pen: TPainterPen);
 begin
 
 end;
@@ -1593,7 +1655,7 @@ begin
   end;
 end;
 
-function TSVGBasic.GetFillBrush: TGPBrush;
+function TSVGBasic.GetFillBrush(const P: TPainter): TPainterBrush;
 var
   Color: Integer;
   Opacity: Integer;
@@ -1607,10 +1669,10 @@ begin
   begin
     Filler := GetRoot.FindByID(FFillURI);
     if Assigned(Filler) and (Filler is TSVGFiller) then
-      Result := TSVGFiller(Filler).GetBrush(Opacity, Self);
+      Result := TSVGFiller(Filler).GetBrush(Opacity, Self, P);
   end else
     if Color >= 0 then
-      Result := TGPSolidBrush.Create(ConvertColor(Color, Opacity));
+      Result := P.CreateSolidBrush(ConvertColor(Color, Opacity));
 end;
 
 function TSVGBasic.GetFillColor: Integer;
@@ -1627,7 +1689,7 @@ begin
     Result := 0;
 end;
 
-function TSVGBasic.GetStrokeBrush: TGPBrush;
+function TSVGBasic.GetStrokeBrush(const P: TPainter): TPainterBrush;
 var
   Color: Integer;
   Opacity: Integer;
@@ -1641,10 +1703,10 @@ begin
   begin
     Filler := GetRoot.FindByID(FStrokeURI);
     if Assigned(Filler) and (Filler is TSVGFiller) then
-      Result := TSVGFiller(Filler).GetBrush(Opacity, Self);
+      Result := TSVGFiller(Filler).GetBrush(Opacity, Self, P);
   end else
     if Color >= 0 then
-      Result := TGPSolidBrush.Create(ConvertColor(Color, Opacity));
+      Result := P.CreateSolidBrush(ConvertColor(Color, Opacity));
 end;
 
 function TSVGBasic.GetStrokeColor: Integer;
@@ -1703,24 +1765,29 @@ begin
   end;
 end;
 
-function TSVGBasic.GetStrokePen(const StrokeBrush: TGPBrush): TGPPen;
+function TSVGBasic.GetStrokePen(const P: TPainter;
+  const StrokeBrush: TPainterBrush): TPainterPen;
 var
-  Pen: TGPPen;
+  Pen: TPainterPen;
   DashArray: PSingle;
+  DashData: array of Single;
   C: Integer;
 begin
-  if Assigned(StrokeBrush) and (StrokeBrush.GetLastStatus = OK) then
+  if Assigned(StrokeBrush) and StrokeBrush.GetLastStatus then
   begin
-    Pen := TGPPen.Create(0, GetStrokeWidth);
-    Pen.SetLineJoin(GetStrokeLineJoin);
+    Pen := P.CreatePen(0, GetStrokeWidth);
+    Pen.SetLineJoin(ToPainterLineJoin(GetStrokeLineJoin));
     Pen.SetMiterLimit(GetStrokeMiterLimit);
-    Pen.SetLineCap(GetStrokeLineCap, GetStrokeLineCap, GetStrokeDashCap);
+    Pen.SetLineCap(ToPainterLineCap(GetStrokeLineCap),
+      ToPainterLineCap(GetStrokeLineCap), ToPainterDashCap(GetStrokeDashCap));
 
     DashArray := GetStrokeDashArray(C);
     if Assigned(DashArray) then
     begin
-      Pen.SetDashPattern(DashArray, C);
-      Pen.SetDashStyle(DashStyleCustom);
+      SetLength(DashData, C);
+      Move(DashArray^, DashData[0], C * SizeOf(Single));
+      Pen.SetDashPattern(DashData);
+      Pen.SetDashStyle(pdsCustom);
       Pen.SetDashOffset(GetStrokeDashOffset);
     end;
 
@@ -1760,10 +1827,10 @@ end;
 
 function TSVGBasic.IsFontAvailable: Boolean;
 var
-  FF: TGPFontFamily;
+  FF: TPainterFontFamily;
 begin
-  FF := TGPFontFamily.Create(GetFontName);
-  Result :=  FF.GetLastStatus = OK;
+  FF := PainterMeasure.CreateFontFamily(GetFontName);
+  Result := FF.GetLastStatus;
   FF.Free;
 end;
 
@@ -1980,7 +2047,7 @@ begin
   FreeAndNil(FPath);
 end;
 
-function TSVGBasic.GetClipPath: TGPGraphicsPath;
+function TSVGBasic.GetClipPath: TPainterPath;
 var
   Path: TSVGObject;
   ClipRoot: TSVGClipPath;
@@ -2197,31 +2264,21 @@ end;
 procedure TSVG.PaintTo(Graphics: TGPGraphics; Bounds: TGPRectF;
   Rects: PRectArray; RectCount: Integer);
 var
-  M: TGPMatrix;
-  MA: Winapi.GDIPOBJ.TMatrixArray;
+  P: TPainterGdiPlus;
+  PM: TPainterMatrix;
 begin
-  M := TGPMatrix.Create;
+  P := TPainterGdiPlus.Create(Graphics);
   try
-    Graphics.GetTransform(M);
-    try
-      M.GetElements(MA);
+    P.GetTransform(PM);
+    FInitialMatrix := ToTMatrix(PM);
 
-      FInitialMatrix.m11 := MA[0];
-      FInitialMatrix.m12 := MA[1];
-      FInitialMatrix.m21 := MA[2];
-      FInitialMatrix.m22 := MA[3];
-      FInitialMatrix.m31 := MA[4];
-      FInitialMatrix.m32 := MA[5];
-      FInitialMatrix.m33 := 1;
+    SetBounds(Bounds);
 
-      SetBounds(Bounds);
+    Paint(P, Rects, RectCount);
 
-      Paint(Graphics, Rects, RectCount);
-    finally
-      Graphics.SetTransform(M);
-    end;
+    P.SetTransform(PM);
   finally
-    M.Free;
+    P.Free;
   end;
 end;
 
@@ -2257,7 +2314,7 @@ begin
   FWidth := 0;
   FHeight := 0;
 
-  FSize := MakeRect(0.0, 0, 0, 0);
+  FSize := Winapi.GDIPAPI.MakeRect(0.0, 0, 0, 0);
 
   FRX := 0;
   FRY := 0;
@@ -2321,28 +2378,30 @@ begin
   CalculateMatrices;
 end;
 
-procedure TSVG.Paint(const Graphics: TGPGraphics; Rects: PRectArray;
+procedure TSVG.Paint(const Graphics: TPainter; Rects: PRectArray;
   RectCount: Integer);
 
   procedure PaintBounds(const Item: TSVGObject);
   var
-    Pen: TGPPen;
+    Pen: TPainterPen;
   begin
     Graphics.ResetTransform;
-    Pen := TGPPen.Create(MakeColor(0, 0, 0), 2);
-    Graphics.DrawLine(Pen, Item.ObjectBounds.TopLeft.X, Item.ObjectBounds.TopLeft.Y,
-      Item.ObjectBounds.TopRight.X, Item.ObjectBounds.TopRight.Y);
+    Pen := Graphics.CreatePen(PainterColor(255, 0, 0, 0), 2);
+    try
+      Graphics.DrawLine(Pen, Item.ObjectBounds.TopLeft.X, Item.ObjectBounds.TopLeft.Y,
+        Item.ObjectBounds.TopRight.X, Item.ObjectBounds.TopRight.Y);
 
-    Graphics.DrawLine(Pen, Item.ObjectBounds.TopRight.X, Item.ObjectBounds.TopRight.Y,
-      Item.ObjectBounds.BottomRight.X, Item.ObjectBounds.BottomRight.Y);
+      Graphics.DrawLine(Pen, Item.ObjectBounds.TopRight.X, Item.ObjectBounds.TopRight.Y,
+        Item.ObjectBounds.BottomRight.X, Item.ObjectBounds.BottomRight.Y);
 
-    Graphics.DrawLine(Pen, Item.ObjectBounds.BottomRight.X, Item.ObjectBounds.BottomRight.Y,
-      Item.ObjectBounds.BottomLeft.X, Item.ObjectBounds.BottomLeft.Y);
+      Graphics.DrawLine(Pen, Item.ObjectBounds.BottomRight.X, Item.ObjectBounds.BottomRight.Y,
+        Item.ObjectBounds.BottomLeft.X, Item.ObjectBounds.BottomLeft.Y);
 
-    Graphics.DrawLine(Pen, Item.ObjectBounds.BottomLeft.X, Item.ObjectBounds.BottomLeft.Y,
-      Item.ObjectBounds.TopLeft.X, Item.ObjectBounds.TopLeft.Y);
-
-    Pen.Free;
+      Graphics.DrawLine(Pen, Item.ObjectBounds.BottomLeft.X, Item.ObjectBounds.BottomLeft.Y,
+        Item.ObjectBounds.TopLeft.X, Item.ObjectBounds.TopLeft.Y);
+    finally
+      Pen.Free;
+    end;
   end;
 
   function InBounds(Item: TSVGObject): Boolean;
@@ -2468,7 +2527,7 @@ begin
     Graphics := TGPGraphics.Create(Bitmap);
     try
       Graphics.SetSmoothingMode(SmoothingModeAntiAlias);
-      R := CalcRect(MakeRect(0.0, 0, Width, Height), FWidth, FHeight, baCenterCenter);
+      R := ToGPRectF(CalcRect(Painter.MakeRect(0.0, 0, Width, Height), FWidth, FHeight, baCenterCenter));
       PaintTo(Graphics, R, nil, 0);
     finally
       Graphics.Free;
@@ -2494,7 +2553,7 @@ begin
     Graphics := TGPGraphics.Create(Bitmap);
     try
       Graphics.SetSmoothingMode(SmoothingModeAntiAlias);
-      R := CalcRect(MakeRect(0.0, 0, Size, Size), Width, Height, baCenterCenter);
+      R := ToGPRectF(CalcRect(Painter.MakeRect(0.0, 0, Size, Size), Width, Height, baCenterCenter));
       PaintTo(Graphics, R, nil, 0);
     finally
       Graphics.Free;
@@ -2691,11 +2750,11 @@ begin
   Result := TSVGUse.Create(Parent);
 end;
 
-procedure TSVGUse.PaintToGraphics(Graphics: TGPGraphics);
+procedure TSVGUse.PaintToGraphics(Graphics: TPainter);
 begin
 end;
 
-procedure TSVGUse.PaintToPath(Path: TGPGraphicsPath);
+procedure TSVGUse.PaintToPath(Path: TPainterPath);
 var
   UseObject: TSVGBasic;
 begin
@@ -2800,12 +2859,12 @@ end;
 procedure TSVGRect.ConstructPath;
 begin
   inherited;
-  FPath := TGPGraphicsPath2.Create;
+  FPath := NewSVGPath;
 
   if (FRX <= 0) and (FRY <= 0) then
-    FPath.AddRectangle(MakeRect(FX, FY, FWidth, FHeight))
+    FPath.AddRectangle(Painter.MakeRect(FX, FY, FWidth, FHeight))
   else
-    FPath.AddRoundRect(FX, FY, FWidth, FHeight, FRX, FRY);
+    AddRoundRectToPath(FPath, FX, FY, FWidth, FHeight, FRX, FRY);
 end;
 {$ENDREGION}
 
@@ -2846,7 +2905,7 @@ end;
 procedure TSVGLine.ConstructPath;
 begin
   inherited;
-  FPath := TGPGraphicsPath2.Create;
+  FPath := NewSVGPath;
   FPath.AddLine(X, Y, Width, Height);
 end;
 {$ENDREGION}
@@ -2983,7 +3042,7 @@ begin
   if FPoints = nil then
     Exit;
 
-  FPath := TGPGraphicsPath2.Create;
+  FPath := NewSVGPath;
 
   for C := 1 to FPointCount - 1 do
     FPath.AddLine(FPoints[C - 1].X, FPoints[C - 1].Y, FPoints[C].X, FPoints[C].Y);
@@ -3047,7 +3106,7 @@ end;
 procedure TSVGEllipse.ConstructPath;
 begin
   inherited;
-  FPath := TGPGraphicsPath2.Create;
+  FPath := NewSVGPath;
   FPath.AddEllipse(X - Width, Y - Height, 2 * Width, 2 * Height);
 end;
 {$ENDREGION}
@@ -3102,7 +3161,8 @@ var
 begin
   inherited;
 
-  FPath := TGPGraphicsPath2.Create(FillModeWinding);
+  FPath := NewSVGPath;
+  FPath.SetFillMode(pfmWinding);
   for C := 0 to Count - 1 do
   begin
     Element := TSVGPathElement(Items[C]);
@@ -3340,8 +3400,6 @@ begin
 end;
 
 procedure TSVGImage.AssignTo(Dest: TPersistent);
-var
-  SA: TStreamAdapter;
 begin
   inherited;
   if Dest is TSVGImage then
@@ -3353,16 +3411,14 @@ begin
       FStream.Position := 0;
       TSVGImage(Dest).FStream.LoadFromStream(FStream);
       TSVGImage(Dest).FStream.Position := 0;
-      SA := TStreamAdapter.Create(TSVGImage(Dest).FStream, soReference);
-      FImage := TGPImage.Create(SA);
+      TSVGImage(Dest).FImage := NewSVGImage(TSVGImage(Dest).FStream);
     end
     else
     begin
       TSVGImage(Dest).FStream := TMemoryStream.Create;
       TSVGImage(Dest).FStream.LoadFromFile(FFileName);
       TSVGImage(Dest).FStream.Position := 0;
-      SA := TStreamAdapter.Create(TSVGImage(Dest).FStream, soReference);
-      FImage := TGPImage.Create(SA);
+      TSVGImage(Dest).FImage := NewSVGImage(TSVGImage(Dest).FStream);
     end;
   end;
 end;
@@ -3372,52 +3428,25 @@ begin
   Result := TSVGImage.Create(Parent);
 end;
 
-procedure TSVGImage.PaintToGraphics(Graphics: TGPGraphics);
+procedure TSVGImage.PaintToGraphics(Graphics: TPainter);
 var
-  //ClipPath: TGPGraphicsPath;
-  TGP: TGPMatrix;
-  ImAtt: TGPImageAttributes;
-  ColorMatrix: TColorMatrix;
-
+  Opts: TPainterImageOptions;
 begin
   if FImage = nil then
     Exit;
 
-  {ClipPath := GetClipPath;
+  Graphics.SetTransform(ToPainterMatrix(Matrix));
 
-  if ClipPath <> nil then
-    Graphics.SetClip(ClipPath);}
-
-  TGP := GetGPMatrix(Matrix);
-  Graphics.SetTransform(TGP);
-  TGP.Free;
-
-  FillChar(ColorMatrix, Sizeof(ColorMatrix), 0);
-  ColorMatrix[0, 0] := 1;
-  ColorMatrix[1, 1] := 1;
-  ColorMatrix[2, 2] := 1;
-  ColorMatrix[3, 3] := GetFillOpacity;
-  ColorMatrix[4, 4] := 1;
-
-  ImAtt := TGPImageAttributes.Create;
-  ImAtt.SetColorMatrix(colorMatrix, ColorMatrixFlagsDefault,
-    ColorAdjustTypeDefault);
-
-  Graphics.DrawImage(FImage, MakeRect(X, Y, Width, Height),
-    0, 0, FImage.GetWidth, FImage.GetHeight, UnitPixel, ImAtt);
-
-  ImAtt.Free;
+  Opts.Opacity := GetFillOpacity;
+  Graphics.DrawImage(FImage, Painter.MakeRect(X, Y, Width, Height), Opts);
 
   Graphics.ResetTransform;
   Graphics.ResetClip;
-
-  //FreeAndNil(ClipPath);
 end;
 
 procedure TSVGImage.ReadIn(const Node: IXMLNode);
 var
   S: string;
-  SA: TStreamAdapter;
 
   function IsValid(var S: string): Boolean;
   var
@@ -3452,8 +3481,7 @@ begin
       FStream := TMemoryStream.Create;
       TNetEncoding.Base64.Decode(SS, FStream);
       FStream.Position := 0;
-      SA := TStreamAdapter.Create(FStream, soReference);
-      FImage := TGPImage.Create(SA);
+      FImage := NewSVGImage(FStream);
       FImage.GetLastStatus;
     finally
       SS.Free;
@@ -3465,8 +3493,7 @@ begin
     FStream := TMemoryStream.Create;
     FStream.LoadFromFile(FFileName);
     FStream.Position := 0;
-    SA := TStreamAdapter.Create(FStream, soReference);
-    FImage := TGPImage.Create(SA);
+    FImage := NewSVGImage(FStream);
     FImage.GetLastStatus;
   end;
 end;
@@ -3480,18 +3507,18 @@ begin
   FDY := 0;
 end;
 
-procedure TSVGCustomText.BeforePaint(const Graphics: TGPGraphics;
-  const Brush: TGPBrush; const Pen: TGPPen);
+procedure TSVGCustomText.BeforePaint(const Graphics: TPainter;
+  const Brush: TPainterBrush; const Pen: TPainterPen);
 begin
   inherited;
   if Assigned(FUnderlinePath) then
   begin
-    if Assigned(Brush) and (Brush.GetLastStatus = OK) then
+    if Assigned(Brush) and Brush.GetLastStatus then
     begin
       Graphics.FillPath(Brush, FUnderlinePath);
     end;
 
-    if Assigned(Pen) and (Pen.GetLastStatus = OK) then
+    if Assigned(Pen) and Pen.GetLastStatus then
     begin
       Graphics.DrawPath(Pen, FUnderlinePath);
     end;
@@ -3534,82 +3561,44 @@ begin
   end;
 end;
 
-function TSVGCustomText.GetFont: TGPFont;
+function TSVGCustomText.GetFont: TPainterFont;
 var
-  FF: TGPFontFamily;
-  FontStyle: TFontStyle;
+  FF: TPainterFontFamily;
+  FontStyle: TPainterFontStyle;
   TD: TTextDecoration;
-//  Font: HFont;
-
-{  function CreateFont: HFont;
-  var
-    LogFont: TLogFont;
-  begin
-    with LogFont do
-    begin
-      lfHeight := Round(GetFont_Size);
-      lfWidth := 0;
-      lfEscapement := 0;
-      lfOrientation := 0;
-      lfWeight := GetFont_Weight;
-
-      lfItalic := GetFont_Style;
-
-      TD := GetText_Decoration;
-
-      if tdUnderLine in TD then
-        lfUnderline := 1
-      else
-        lfUnderline := 0;
-
-      if tdStrikeOut in TD then
-        lfStrikeOut := 1
-      else
-        lfStrikeOut := 0;
-
-      lfCharSet := 1;
-      lfOutPrecision := OUT_DEFAULT_PRECIS;
-      lfClipPrecision := CLIP_DEFAULT_PRECIS;
-      lfQuality := DEFAULT_QUALITY;
-      lfPitchAndFamily := DEFAULT_PITCH;
-      StrPCopy(lfFaceName, GetFont_Name);
-    end;
-    Result := CreateFontIndirect(LogFont);
-  end;}
-
 begin
   FF := GetFontFamily(GetFontName);
 
-  FontStyle := FontStyleRegular;
+  FontStyle := [];
   if GetFontWeight = FW_BOLD then
-    FontStyle := FontStyle or FontStyleBold;
+    Include(FontStyle, pfsBold);
 
   if GetFontStyle = 1 then
-    FontStyle := FontStyle or FontStyleItalic;
+    Include(FontStyle, pfsItalic);
 
   TD := GetTextDecoration;
 
   if tdUnderLine in TD then
-    FontStyle := FontStyle or FontStyleUnderline;
+    Include(FontStyle, pfsUnderline);
 
   if tdStrikeOut in TD then
-    FontStyle := FontStyle or FontStyleStrikeout;
+    Include(FontStyle, pfsStrikeout);
 
   FFontHeight := FF.GetCellAscent(FontStyle) / FF.GetEmHeight(FontStyle);
   FFontHeight := FFontHeight * GetFontSize;
 
-  Result := TGPFont.Create(FF, GetFontSize, FontStyle, UnitPixel);
+  Result := PainterMeasure.CreateFont(FF, GetFontSize, FontStyle);
   FF.Free;
 end;
 
-function TSVGCustomText.GetFontFamily(const FontName: string): TGPFontFamily;
+function TSVGCustomText.GetFontFamily(const FontName: string): TPainterFontFamily;
 var
-  FF: TGPFontFamily;
+  FF: TPainterFontFamily;
   C: Integer;
   FN: string;
 begin
-  FF := TGPFontFamily.Create(FontName);
-  if FF.GetLastStatus <> OK then
+  FF := PainterMeasure.CreateFontFamily(FontName);
+  if not FF.GetLastStatus then
   begin
     FreeAndNil(FF);
 
@@ -3617,13 +3606,13 @@ begin
     if (C <> 0) then
     begin
       FN := Copy(FontName, 1, C - 1);
-      FF := TGPFontFamily.Create(FN);
-      if FF.GetLastStatus <> OK then
+      FF := PainterMeasure.CreateFontFamily(FN);
+      if not FF.GetLastStatus then
         FreeAndNil(FF);
     end;
   end;
   if not Assigned(FF) then
-    FF := TGPFontFamily.Create('Arial');
+    FF := PainterMeasure.CreateFontFamily('Arial');
 
   Result := FF;
 end;
@@ -3645,31 +3634,20 @@ end;
 
 procedure TSVGCustomText.SetSize;
 var
-  Graphics: TGPGraphics;
-  SF: TGPStringFormat;
-  Font: TGPFont;
-  Rect: TGPRectF;
+  Format: TPainterTextFormat;
+  Font: TPainterFont;
+  Rect: TPainterRect;
   Index: Integer;
   Previous: TSVGCustomText;
-  DC: HDC;
 begin
-  DC := GetDC(0);
-  Graphics := TGPGraphics.Create(DC);
-
   Font := GetFont;
-
-  SF := TGPStringFormat.Create(StringFormatFlagsMeasureTrailingSpaces);
-
-  Graphics.MeasureString(FText, -1, Font, MakePoint(0.0, 0), SF, Rect);
-
-  Rect.Width := KerningText.MeasureText(FText, Font);
-
-  SF.Free;
-
-  Graphics.Free;
-  ReleaseDC(0, DC);
-
-  Font.Free;
+  try
+    Format := PainterMeasure.CreateTextFormat(False, True);
+    PainterMeasure.MeasureString(FText, Font, Painter.MakePoint(0.0, 0), Format, Rect);
+    Rect.Width := PainterMeasure.MeasureText(FText, Font);
+  finally
+    Font.Free;
+  end;
 
   FWidth := 0;
   FHeight := 0;
@@ -3702,16 +3680,16 @@ begin
   FHeight := Rect.Height;
 end;
 
-procedure TSVGCustomText.AfterPaint(const Graphics: TGPGraphics;
-  const Brush: TGPBrush; const Pen: TGPPen);
+procedure TSVGCustomText.AfterPaint(const Graphics: TPainter;
+  const Brush: TPainterBrush; const Pen: TPainterPen);
 begin
   inherited;
   if Assigned(FStrikeOutPath) then
   begin
-    if Assigned(Brush) and (Brush.GetLastStatus = OK) then
+    if Assigned(Brush) and Brush.GetLastStatus then
       Graphics.FillPath(Brush, FStrikeOutPath);
 
-    if Assigned(Pen) and (Pen.GetLastStatus = OK) then
+    if Assigned(Pen) and Pen.GetLastStatus then
       Graphics.DrawPath(Pen, FStrikeOutPath);
   end;
 end;
@@ -3735,9 +3713,9 @@ end;
 
 procedure TSVGCustomText.ConstructPath;
 var
-  FF: TGPFontFamily;
-  FontStyle: TFontStyle;
-  SF: TGPStringFormat;
+  FF: TPainterFontFamily;
+  FontStyle: TPainterFontStyle;
+  Format: TPainterTextFormat;
   TD: TTextDecoration;
 begin
   inherited;
@@ -3749,50 +3727,46 @@ begin
 
   if FText = '' then
     Exit;
-  FPath := TGPGraphicsPath2.Create;
+  FPath := NewSVGPath;
 
   FF := GetFontFamily(GetFontName);
 
-  FontStyle := FontStyleRegular;
+  FontStyle := [];
   if FFontWeight = FW_BOLD then
-    FontStyle := FontStyle or FontStyleBold;
+    Include(FontStyle, pfsBold);
 
   if GetFontStyle = 1 then
-    FontStyle := FontStyle or FontStyleItalic;
+    Include(FontStyle, pfsItalic);
 
   TD := GetTextDecoration;
 
   if tdUnderLine in TD then
   begin
-    FontStyle := FontStyle or FontStyleUnderline;
-    FUnderlinePath := TGPGraphicsPath.Create;
+    Include(FontStyle, pfsUnderline);
+    FUnderlinePath := NewSVGPath;
   end;
 
   if tdStrikeOut in TD then
   begin
-    FontStyle := FontStyle or FontStyleStrikeout;
-    FStrikeOutPath := TGPGraphicsPath.Create;
+    Include(FontStyle, pfsStrikeout);
+    FStrikeOutPath := NewSVGPath;
   end;
 
-  SF := TGPStringFormat.Create(TGPStringFormat.GenericTypographic);
-  SF.SetFormatFlags(StringFormatFlagsMeasureTrailingSpaces);
+  Format := PainterMeasure.CreateTextFormat(True, True);
 
-  KerningText.AddToPath(FPath, FUnderlinePath, FStrikeOutPath,
+  PainterMeasure.AddTextToPath(FPath, FUnderlinePath, FStrikeOutPath,
     FText, FF, FontStyle, GetFontSize,
-    MakePoint(X, Y - FFontHeight), SF);
+    Painter.MakePoint(X, Y - FFontHeight), Format);
 
-  SF.Free;
   FF.Free;
 end;
 
-procedure TSVGCustomText.PaintToGraphics(Graphics: TGPGraphics);
+procedure TSVGCustomText.PaintToGraphics(Graphics: TPainter);
 {$IFDEF USE_TEXT}
 var
-  Font: TGPFont;
-  SF: TGPStringFormat;
-  Brush: TGPBrush;
-
-  TGP: TGPMatrix;
+  Font: TPainterFont;
+  Format: TPainterTextFormat;
+  Brush: TPainterBrush;
   ClipRoot: TSVGBasic;
 {$ENDIF}
 begin
@@ -3810,37 +3784,29 @@ begin
       begin
         ClipRoot := TSVGBasic(GetRoot.FindByID(ClipURI));
         if Assigned(ClipRoot) then
-        begin
-          TGP := GetGPMatrix(ClipRoot.Matrix);
-          Graphics.SetTransform(TGP);
-          TGP.Free;
-        end;
+          Graphics.SetTransform(ToPainterMatrix(ClipRoot.Matrix));
       end;
       Graphics.SetClip(FClipPath);
       Graphics.ResetTransform;
     end;
 
-    TGP := GetGPMatrix(Matrix);
-    Graphics.SetTransform(TGP);
-    TGP.Free;
+    Graphics.SetTransform(ToPainterMatrix(Matrix));
 
-    SF := TGPStringFormat.Create(TGPStringFormat.GenericTypographic);
-    SF.SetFormatFlags(StringFormatFlagsMeasureTrailingSpaces);
+    Format := Graphics.CreateTextFormat(True, True);
 
-    Brush := GetFillBrush;
-    if Assigned(Brush) and (Brush.GetLastStatus = OK) then
+    Brush := GetFillBrush(Graphics);
+    if Assigned(Brush) and Brush.GetLastStatus then
     try
       Font := GetFont;
       try
-        KerningText.AddToGraphics(Graphics, FText, Font, MakePoint(X, Y - FFontHeight), SF, Brush);
+        Graphics.DrawString(FText, Font, Painter.MakePoint(X, Y - FFontHeight),
+          Format, Brush);
       finally
         Font.Free;
       end;
     finally
       Brush.Free;
     end;
-
-    SF.Free;
   finally
     Graphics.ResetTransform;
     Graphics.ResetClip;
@@ -3930,11 +3896,11 @@ end;
 {$ENDREGION}
 
 {$REGION 'TSVGClipPath'}
-procedure TSVGClipPath.PaintToPath(Path: TGPGraphicsPath);
+procedure TSVGClipPath.PaintToPath(Path: TPainterPath);
 begin
 end;
 
-procedure TSVGClipPath.PaintToGraphics(Graphics: TGPGraphics);
+procedure TSVGClipPath.PaintToGraphics(Graphics: TPainter);
 begin
 end;
 
@@ -3957,7 +3923,7 @@ procedure TSVGClipPath.ConstructClipPath;
   end;
 
 begin
-  FClipPath := TGPGraphicsPath.Create;
+  FClipPath := NewSVGPath;
   AddPath(Self);
 end;
 
@@ -3967,7 +3933,7 @@ begin
   inherited;
 end;
 
-function TSVGClipPath.GetClipPath: TGPGraphicsPath;
+function TSVGClipPath.GetClipPath: TPainterPath;
 begin
   if not Assigned(FClipPath) then
     ConstructClipPath;
@@ -4007,11 +3973,10 @@ var
   procedure RenderTextElement(const Element: TSVGCustomText);
   var
     C: Integer;
-    FF: TGPFontFamily;
-    FontStyle: TFontStyle;
-    SF: TGPStringFormat;
-    PT: TGPPathText;
-    Matrix: TGPMatrix;
+    FF: TPainterFontFamily;
+    FontStyle: TPainterFontStyle;
+    Format: TPainterTextFormat;
+    Additional, T: TPainterMatrix;
     Size: TFloat;
   begin
     FreeAndNil(Element.FUnderlinePath);
@@ -4021,45 +3986,39 @@ var
     begin
       FF := GetFontFamily(Element.GetFontName);
 
-      FontStyle := FontStyleRegular;
+      FontStyle := [];
       if Element.FFontWeight = FW_BOLD then
-        FontStyle := FontStyle or FontStyleBold;
+        Include(FontStyle, pfsBold);
 
       if Element.GetFontStyle = 1 then
-        FontStyle := FontStyle or FontStyleItalic;
+        Include(FontStyle, pfsItalic);
 
-      SF := TGPStringFormat.Create(TGPStringFormat.GenericTypographic);
-      SF.SetFormatFlags(StringFormatFlagsMeasureTrailingSpaces);
+      Format := PainterMeasure.CreateTextFormat(True, True);
 
-      PT := TGPPathText.Create(GuidePath.FPath);
-
+      Additional := MakeIdentityMatrix;
       if Element.FPureMatrix.m33 = 1 then
-        Matrix := GetGPMatrix(Element.FPureMatrix)
-      else
-        Matrix := nil;
+        Additional := ToPainterMatrix(Element.FPureMatrix);
 
       X := X + Element.FDX;
       Y := Y + Element.FDY;
       if (X <> 0) or (Y <> 0) then
       begin
-        if not Assigned(Matrix) then
-          Matrix := TGPMatrix.Create;
-        Matrix.Translate(X, Y);
+        { Row-vector convention: the translation is appended (applied after the
+          additional matrix), matching the original Matrix.Translate(X, Y) call
+          on the GDI+ matrix. }
+        T := MakeIdentityMatrix;
+        T.m31 := X;
+        T.m32 := Y;
+        Additional := MatrixMultiply(Additional, T);
       end;
 
-      PT.AdditionalMatrix := Matrix;
-      Element.FPath := TGPGraphicsPath2.Create;
+      Element.FPath := NewSVGPath;
 
       Size := Element.GetFontSize;
       Position := Position +
-        PT.AddPathText(Element.FPath, Trim(Element.FText), Offset + Position,
-          FF, FontStyle, Size, SF);
+        PainterMeasure.AddPathText(Element.FPath, GuidePath.FPath, Trim(Element.FText),
+          FF, FontStyle, Size, Format, Offset + Position, True, Additional);
 
-      PT.Free;
-
-      Matrix.Free;
-
-      SF.Free;
       FF.Free;
     end;
 
@@ -4086,7 +4045,7 @@ begin
   Offset := 0;
   if FOffsetIsPercent and (FOffset <> 0) then
   begin
-    Offset := TGPPathText.GetPathLength(GuidePath.FPath) / 100 * FOffset;
+    Offset := PainterMeasure.GetPathLength(GuidePath.FPath) / 100 * FOffset;
   end;
 
   X := FDX;
@@ -4201,7 +4160,7 @@ end;
 
 initialization
   {$WARN SYMBOL_PLATFORM OFF}
-// nur wenn ein Debugger vorhanden, den Patch ausführen
+// nur wenn ein Debugger vorhanden, den Patch ausfï¿½hren
   if DebugHook <> 0 then
     PatchINT3;
   {$WARN SYMBOL_PLATFORM ON}
