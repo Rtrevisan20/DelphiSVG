@@ -20,8 +20,7 @@ unit SVGProperties;
 interface
 
 uses
-  System.Math.Vectors,
-  Xml.XmlIntf,
+  SVGXML,
   SVGTypes;
 
 procedure LoadLength(const Node: IXMLNode; const S: string; var X: TFloat);
@@ -31,7 +30,7 @@ procedure LoadTFloat(const Node: IXMLNode; const S: string; var X: TFloat);
 function LoadString(const Node: IXMLNode; const S: string): string; overload;
 procedure LoadString(const Node: IXMLNode; const S: string; var X: string); overload;
 
-procedure LoadTransform(const Node: IXMLNode; const S: string; var Matrix: TMatrix);
+procedure LoadTransform(const Node: IXMLNode; const S: string; var Matrix: TMatrix2D);
 
 procedure LoadPercent(const Node: IXMLNode; const S: string; var X: TFloat); overload;
 procedure LoadPercent(const Node: IXMLNode; const S: string; Max: Integer; var X: TFloat); overload;
@@ -99,7 +98,7 @@ begin
 end;
 
 procedure LoadTransform(const Node: IXMLNode; const S: string;
-  var Matrix: TMatrix);
+  var Matrix: TMatrix2D);
 var
   Attribute: IXMLNode;
 begin

@@ -19,10 +19,16 @@
 
 unit GDIPKerning;
 
+{$IFDEF FPC}{$MODE Delphi}{$ENDIF}
+
 interface
 
 uses
+{$IFDEF FPC}
+  Windows, Classes, GDIPAPI, GDIPOBJ;
+{$ELSE}
   Winapi.Windows, System.Classes, Winapi.GDIPAPI, Winapi.GDIPOBJ;
+{$ENDIF}
 
 type
   TKerningPairs = array of TKerningPair;
@@ -383,11 +389,22 @@ begin
 end;
 
 procedure TGPKerningText.PrepareFont(const LF: TLogFontW);
+{$IFDEF FPC}
+var
+  L: TLogFontW;
+{$ENDIF}
 begin
   if (FFont <> 0) then
     Exit;
 
+{$IFDEF FPC}
+  { FPC's CreateFontIndirectW takes 'var' (Delphi's takes 'const'); copy so a
+    const parameter can be passed. Same content, same result. }
+  L := LF;
+  FFont := CreateFontIndirectW(L);
+{$ELSE}
   FFont := CreateFontIndirectW(LF);
+{$ENDIF}
 end;
 
 procedure TGPKerningText.PrepareKerning(const Font: TGPFont;

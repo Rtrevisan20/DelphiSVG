@@ -1,0 +1,32 @@
+package delphisvg;
+
+{$mode objfpc}{$H+}
+
+requires
+  rtl,
+  xmlrtl,
+  lazutils,
+  LCL;
+
+contains
+  SVG in '..\..\svg\SVG.pas',
+  SVGColor in '..\..\svg\SVGColor.pas',
+  SVGPaint in '..\..\svg\SVGPaint.pas',
+  SVGParse in '..\..\svg\SVGParse.pas',
+  SVGPath in '..\..\svg\SVGPath.pas',
+  SVGProperties in '..\..\svg\SVGProperties.pas',
+  SVGStyle in '..\..\svg\SVGStyle.pas',
+  SVGTypes in '..\..\svg\SVGTypes.pas',
+  SVGCommon in '..\..\svg\SVGCommon.pas',
+  SVGXML in '..\..\svg\SVGXML.pas',
+  GDIPAPI in '..\..\gdip\GDIPAPI.pas',
+  GDIPOBJ in '..\..\gdip\GDIPOBJ.pas',
+  GDIPUTIL in '..\..\gdip\GDIPUTIL.pas',
+  GDIPKerning in '..\..\gdip\GDIPKerning.pas',
+  GDIPOBJ2 in '..\..\gdip\GDIPOBJ2.pas',
+  GDIPPathText in '..\..\gdip\GDIPPathText.pas',
+  Painter in '..\..\painter\Painter.pas',
+  PainterGdiPlus in '..\..\painter\PainterGdiPlus.pas',
+  PainterLCL in '..\..\painter\PainterLCL.pas';
+
+end.

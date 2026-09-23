@@ -20,10 +20,17 @@ unit SVGPaint;
 interface
 
 uses
-  System.UITypes, System.Classes,
-  Xml.XmlIntf,
+{$IFDEF FPC}
+  Classes,
+  SVGXML,
   Painter,
   SVGTypes, SVG;
+{$ELSE}
+  System.Classes,
+  SVGXML,
+  Painter,
+  SVGTypes, SVG;
+{$ENDIF}
 
 type
   TColors = record
@@ -121,12 +128,17 @@ type
 implementation
 
 uses
-  System.SysUtils, System.Math.Vectors,
+{$IFDEF FPC}
+  SysUtils,
   SVGParse, SVGStyle, SVGProperties, SVGColor;
+{$ELSE}
+  System.SysUtils,
+  SVGParse, SVGStyle, SVGProperties, SVGColor;
+{$ENDIF}
 
-{ Maps the core's System.Math.Vectors TMatrix to the painter matrix model
+{ Maps the core's System.Math.Vectors TMatrix2D to the painter matrix model
   (m33 is implied = 1), the same convention SVG.pas' ToPainterMatrix uses. }
-function MatrixToPainter(const M: TMatrix): TPainterMatrix;
+function MatrixToPainter(const M: TMatrix2D): TPainterMatrix;
 begin
   Result.m11 := M.m11;
   Result.m12 := M.m12;
@@ -247,7 +259,7 @@ end;
 
 procedure TSVGLinearGradient.ReadIn(const Node: IXMLNode);
 var
-  Matrix: TMatrix;
+  Matrix: TMatrix2D;
 begin
   inherited;
   LoadLength(Node, 'x1', FX1);

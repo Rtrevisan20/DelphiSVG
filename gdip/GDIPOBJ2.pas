@@ -8,10 +8,16 @@
       { *****************************************************************}
 unit GDIPOBJ2;
 
+{$IFDEF FPC}{$MODE Delphi}{$ENDIF}
+
 interface
 
 uses
+{$IFDEF FPC}
+  GDIPAPI, GDIPOBJ;
+{$ELSE}
   Winapi.GDIPAPI, Winapi.GDIPOBJ;
+{$ENDIF}
 
 type
   TGPGraphicsPath2 = class(TGPGraphicsPath)

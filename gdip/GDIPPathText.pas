@@ -19,10 +19,16 @@
 
 unit GDIPPathText;
 
+{$IFDEF FPC}{$MODE Delphi}{$ENDIF}
+
 interface
 
 uses
+{$IFDEF FPC}
+  GDIPAPI, GDIPOBJ, GDIPKerning;
+{$ELSE}
   Winapi.GDIPAPI, Winapi.GDIPOBJ, GDIPKerning;
+{$ENDIF}
 
 type
   TPathPosition = Single;
@@ -74,7 +80,11 @@ type
 implementation
 
 uses
+{$IFDEF FPC}
+  Math, SysUtils;
+{$ELSE}
   System.Math, System.SysUtils;
+{$ENDIF}
 
 function GetPoint(P: PGPPointF; Index: Integer): TGPPointF;
 begin

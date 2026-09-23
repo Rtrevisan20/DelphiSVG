@@ -30,10 +30,19 @@ unit SVG;
 interface
 
 uses
+{$IFDEF FPC}
+  Windows,
+  Classes, Math, Types,
+  System.NetEncoding,
+  GDIPAPI, GDIPOBJ,
+  PainterGdiPlus,
+  SVGXML, SVGTypes, SVGStyle, Painter;
+{$ELSE}
   Winapi.Windows, Winapi.GDIPOBJ, Winapi.GDIPAPI,
-  System.Classes, System.Math, System.NetEncoding, System.Math.Vectors, System.Types,
-  Xml.XmlIntf,
+  System.Classes, System.Math, System.NetEncoding, System.Types,
+  SVGXML,
   SVGTypes, SVGStyle, Painter;
+{$ENDIF}
 
 type
   TSVG = class;
@@ -95,10 +104,10 @@ type
 
   TSVGMatrix = class(TSVGObject)
   private
-    FPureMatrix: TMatrix;
-    FCompleteCalculatedMatrix: TMatrix;
-    FCalculatedMatrix: TMatrix;
-    procedure SetPureMatrix(const Value: TMatrix);
+    FPureMatrix: TMatrix2D;
+    FCompleteCalculatedMatrix: TMatrix2D;
+    FCalculatedMatrix: TMatrix2D;
+    procedure SetPureMatrix(const Value: TMatrix2D);
     procedure CalcMatrix;
 
     function Transform(const P: TPointF): TPointF; overload;
@@ -108,8 +117,8 @@ type
   public
     procedure Clear; override;
     procedure ReadIn(const Node: IXMLNode); override;
-    property Matrix: TMatrix read FCompleteCalculatedMatrix;
-    property PureMatrix: TMatrix read FPureMatrix write SetPureMatrix;
+    property Matrix: TMatrix2D read FCompleteCalculatedMatrix;
+    property PureMatrix: TMatrix2D read FPureMatrix write SetPureMatrix;
   end;
 
   TSVGBasic = class(TSVGMatrix)
@@ -236,11 +245,11 @@ type
     FRootBounds: TGPRectF;
     FDX: TFloat;
     FDY: TFloat;
-    FInitialMatrix: TMatrix;
+    FInitialMatrix: TMatrix2D;
     FSource: string;
     FAngle: TFloat;
-    FAngleMatrix: TMatrix;
-    FRootMatrix: TMatrix;
+    FAngleMatrix: TMatrix2D;
+    FRootMatrix: TMatrix2D;
     FViewBox: TRectF;
     FFileName: string;
     FSize: TGPRectF;
@@ -259,7 +268,7 @@ type
     procedure AssignTo(Dest: TPersistent); override;
     function New(Parent: TSVGObject): TSVGObject; override;
     procedure ReadStyles(const Node: IXMLNode);
-    property RootMatrix: TMatrix read FRootMatrix;
+    property RootMatrix: TMatrix2D read FRootMatrix;
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -290,7 +299,7 @@ type
     function RenderToIcon(Size: Integer): HICON;
     function RenderToBitmap(Width, Height: Integer): HBITMAP;
 
-    property InitialMatrix: TMatrix read FInitialMatrix write FInitialMatrix;
+    property InitialMatrix: TMatrix2D read FInitialMatrix write FInitialMatrix;
     property SVGOpacity: TFloat write SetSVGOpacity;
     property Source: string read FSource;
     property Angle: TFloat read FAngle write SetAngle;
@@ -504,18 +513,19 @@ type
 implementation
 
 uses
+{$IFDEF FPC}
+  SysUtils, Variants, StrUtils,
+  SVGParse, SVGProperties, SVGColor, SVGPaint, SVGPath, SVGCommon;
+{$ELSE}
   System.SysUtils, System.Variants, System.StrUtils, System.Character,
-  Xml.XmlDoc,
-{$IFDEF MSWINDOWS}
-  Xml.Win.msxmldom,
-{$ENDIF}
   PainterGdiPlus, SVGParse, SVGProperties, SVGColor, SVGPaint, SVGPath, SVGCommon;
+{$ENDIF}
 
 {$REGION 'Painter bridge helpers (task 2.1)'}
 
-{ Maps the core's System.Math.Vectors TMatrix to the painter matrix model
+{ Maps the core's System.Math.Vectors TMatrix2D to the painter matrix model
   (m33 is implied = 1, same convention GetGPMatrix uses with GDI+). }
-function ToPainterMatrix(const M: TMatrix): TPainterMatrix;
+function ToPainterMatrix(const M: TMatrix2D): TPainterMatrix;
 begin
   Result.m11 := M.m11;
   Result.m12 := M.m12;
@@ -525,7 +535,7 @@ begin
   Result.m32 := M.m32;
 end;
 
-function ToTMatrix(const M: TPainterMatrix): TMatrix;
+function ToTMatrix(const M: TPainterMatrix): TMatrix2D;
 begin
   Result.m11 := M.m11;
   Result.m12 := M.m12;
@@ -901,9 +911,9 @@ var
   C: Integer;
   List: TList;
   SVG: TSVGObject;
-  CompleteMatrix: TMatrix;
-  LMatrix: TMatrix;
-  NewMatrix: TMatrix;
+  CompleteMatrix: TMatrix2D;
+  LMatrix: TMatrix2D;
+  NewMatrix: TMatrix2D;
 begin
   List := TList.Create;
 
@@ -961,7 +971,7 @@ end;
 
 procedure TSVGMatrix.ReadIn(const Node: IXMLNode);
 var
-  M: TMatrix;
+  M: TMatrix2D;
 begin
   inherited;
   M := FPureMatrix;
@@ -969,7 +979,7 @@ begin
   FPureMatrix := M;
 end;
 
-procedure TSVGMatrix.SetPureMatrix(const Value: TMatrix);
+procedure TSVGMatrix.SetPureMatrix(const Value: TMatrix2D);
 begin
   FPureMatrix := Value;
 
@@ -2076,10 +2086,7 @@ begin
   Clear;
   try
     FSource := Text;
-    {$IFDEF MSWINDOWS}
-    TMSXMLDOMDocumentFactory.AddDOMProperty('ProhibitDTD', False, True);
-    {$ENDIF}
-    XML := TXmlDocument.Create(nil);
+    XML := CreateSVGXmlDocument;
     XML.LoadFromXML(Text);
 
     if Assigned(XML) then
@@ -2170,10 +2177,7 @@ begin
     Exit;
 
   try
-    {$IFDEF MSWINDOWS}
-    TMSXMLDOMDocumentFactory.AddDOMProperty('ProhibitDTD', False, True);
-    {$ENDIF}
-    XML := TXmlDocument.Create(nil);
+    XML := CreateSVGXmlDocument;
     XML.LoadFromXML(FSource);
 
     Container := Parent.ownerDocument.createElement('g', '');
@@ -2314,7 +2318,11 @@ begin
   FWidth := 0;
   FHeight := 0;
 
+{$IFDEF FPC}
+  FSize := PainterGdiPlus.ToGPRectF(Painter.MakeRect(0.0, 0, 0, 0));
+{$ELSE}
   FSize := Winapi.GDIPAPI.MakeRect(0.0, 0, 0, 0);
+{$ENDIF}
 
   FRX := 0;
   FRY := 0;
@@ -2326,7 +2334,7 @@ begin
   StrokeOpacity := 1;
 
   FAngle := 0;
-  FillChar(FAngleMatrix, SizeOf(TMatrix), 0);
+  FillChar(FAngleMatrix, SizeOf(TMatrix2D), 0);
 
   FLineWidth := 1;
 
@@ -2354,8 +2362,8 @@ begin
     FAngle := Angle;
     X := Width / 2;
     Y := Height / 2;
-    FAngleMatrix := TMatrix.CreateTranslation(X, Y) * TMatrix.CreateRotation(Angle) *
-      TMatrix.CreateTranslation(-X, -Y)
+    FAngleMatrix := TMatrix2D.CreateTranslation(X, Y) * TMatrix2D.CreateRotation(Angle) *
+      TMatrix2D.CreateTranslation(-X, -Y)
   end;
 end;
 
@@ -2621,13 +2629,13 @@ end;
 
 procedure TSVG.CalcRootMatrix;
 var
-  ViewBoxMatrix: TMatrix;
-  BoundsMatrix: TMatrix;
-  ScaleMatrix: TMatrix;
+  ViewBoxMatrix: TMatrix2D;
+  BoundsMatrix: TMatrix2D;
+  ScaleMatrix: TMatrix2D;
 begin
-  ViewBoxMatrix := TMatrix.CreateTranslation(-FViewBox.Left, -FViewBox.Top);
-  BoundsMatrix := TMatrix.CreateTranslation(FRootBounds.X, FRootBounds.Y);
-  ScaleMatrix := TMatrix.CreateScaling(FDX, FDY);
+  ViewBoxMatrix := TMatrix2D.CreateTranslation(-FViewBox.Left, -FViewBox.Top);
+  BoundsMatrix := TMatrix2D.CreateTranslation(FRootBounds.X, FRootBounds.Y);
+  ScaleMatrix := TMatrix2D.CreateScaling(FDX, FDY);
 
   if FInitialMatrix.m33 = 1 then
   begin
@@ -2635,7 +2643,7 @@ begin
   end
   else
   begin
-    FRootMatrix := TMatrix.Identity;
+    FRootMatrix := TMatrix2D.Identity;
   end;
 
   FRootMatrix := BoundsMatrix * FRootMatrix;
@@ -2773,7 +2781,7 @@ var
   Container: TSVGContainer;
   SVG: TSVGObject;
   Child: TSVGObject;
-  Matrix: TMatrix;
+  Matrix: TMatrix2D;
 begin
   while Count > 0 do
     GetItem(0).Free;
@@ -2787,7 +2795,7 @@ begin
 
   if Assigned(SVG) then
   begin
-    Matrix := TMatrix.CreateTranslation(X, Y);
+    Matrix := TMatrix2D.CreateTranslation(X, Y);
 
     Container := TSVGContainer.Create(Self);
     Container.FObjectName := 'g';
@@ -3270,8 +3278,12 @@ begin
 
   if Result.Count > 0 then
   begin
+{$IFDEF FPC}
+    if Pos(ACommand, 'MmLlHhVvCcSsQqTtAa') > 0 then
+{$ELSE}
     if ACommand.IsInArray(['M', 'm', 'L', 'l', 'H', 'h', 'V', 'v',
       'C', 'c', 'S', 's', 'Q', 'q', 'T', 't', 'A', 'a']) then
+{$ENDIF}
     begin
       PrepareMoveLineCurveArc(ACommand, Result);
     end
@@ -3431,14 +3443,19 @@ end;
 procedure TSVGImage.PaintToGraphics(Graphics: TPainter);
 var
   Opts: TPainterImageOptions;
+  R: TPainterRect;
 begin
   if FImage = nil then
     Exit;
 
   Graphics.SetTransform(ToPainterMatrix(Matrix));
 
+  { FPC 3.2.2: passing Painter.MakeRect(...) inline trips "Internal error
+    2009112505"; build it in a local first. }
+  R := Painter.MakeRect(X, Y, Width, Height);
   Opts.Opacity := GetFillOpacity;
-  Graphics.DrawImage(FImage, Painter.MakeRect(X, Y, Width, Height), Opts);
+
+  Graphics.DrawImage(FImage, R, Opts);
 
   Graphics.ResetTransform;
   Graphics.ResetClip;
@@ -4128,6 +4145,7 @@ begin
 end;
 {$ENDREGION}
 
+{$IFNDEF FPC}
 procedure PatchINT3; 
 var 
   NOP: Byte;
@@ -4157,11 +4175,17 @@ begin
     else raise;
   end;
 end;
+{$ENDIF}
 
 initialization
+{$IFDEF FPC}
+  { FPC: no DebugHook/Win32Platform PatchINT3 runtime hack (Delphi-only RTL
+    internals). }
+{$ELSE}
   {$WARN SYMBOL_PLATFORM OFF}
-// nur wenn ein Debugger vorhanden, den Patch ausf�hren
+  // nur wenn ein Debugger vorhanden, den Patch ausf�hren
   if DebugHook <> 0 then
     PatchINT3;
   {$WARN SYMBOL_PLATFORM ON}
+{$ENDIF}
 end.

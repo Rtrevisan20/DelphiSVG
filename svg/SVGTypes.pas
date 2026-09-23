@@ -20,7 +20,11 @@ unit SVGTypes;
 interface
 
 uses
-  System.Math, System.Types;
+{$IFDEF FPC}
+  Math, Types;
+{$ELSE}
+  System.Math, System.Types, System.UITypes;
+{$ENDIF}
 
 const
   INHERIT = -1;
@@ -31,6 +35,15 @@ const
   MaxTFloat = MaxSingle;
 
 type
+{$IFDEF FPC}
+  { COLORREF-style color (0x00BBGGRR, low byte = red), same layout as
+    System.UITypes.TColor on Delphi. Kept out of LCL units on FPC so the
+    SVG core stays widgetset-independent. }
+  TColor = LongInt;
+{$ELSE}
+  TColor = System.UITypes.TColor;
+{$ENDIF}
+
   TFloat = single;
 
   TListOfPoints = array of TPointF;
@@ -48,6 +61,22 @@ TTextDecoration = set of (tdInherit, tdUnderLine, tdOverLine, tdStrikeOut);
 
     TGradientUnits = (guObjectBoundingBox, guUserSpaceOnUse);
 
+{ Portable 2D affine matrix (3x3) with the exact same math and row-vector
+      convention (P' = P * M) as System.Math.Vectors.TMatrix on Delphi, so the
+      SVG core renders pixel-identically on FPC too (Types.TPointF/TRectF are
+      used for points/rects; only the matrix needed a portable replacement). }
+    TMatrix2D = record
+      m11, m12, m13: Single;
+      m21, m22, m23: Single;
+      m31, m32, m33: Single;
+      class function Identity: TMatrix2D; static;
+      class function CreateRotation(const AAngle: Single): TMatrix2D; static;
+      class function CreateScaling(const AScaleX, AScaleY: Single): TMatrix2D; static;
+      class function CreateTranslation(const ADeltaX, ADeltaY: Single): TMatrix2D; static;
+      class operator Multiply(const AMatrix1, AMatrix2: TMatrix2D): TMatrix2D;
+      class operator Multiply(const APoint: TPointF; const AMatrix: TMatrix2D): TPointF;
+    end;
+
     TBounds = record
       TopLeft: TPointF;
       TopRight: TPointF;
@@ -58,6 +87,61 @@ TTextDecoration = set of (tdInherit, tdUnderLine, tdOverLine, tdStrikeOut);
 function Intersect(const Bounds: TBounds; const Rect: TRect): Boolean;
 
 implementation
+
+{ TMatrix2D - math copied from System.Math.Vectors.TMatrix (Delphi RTL) so
+  the port is pixel-identical. FPC supports record class operators/statics. }
+
+class function TMatrix2D.Identity: TMatrix2D;
+begin
+  Result.m11 := 1; Result.m12 := 0; Result.m13 := 0;
+  Result.m21 := 0; Result.m22 := 1; Result.m23 := 0;
+  Result.m31 := 0; Result.m32 := 0; Result.m33 := 1;
+end;
+
+class function TMatrix2D.CreateRotation(const AAngle: Single): TMatrix2D;
+var
+  Sine, Cosine: Single;
+begin
+  SinCos(AAngle, Sine, Cosine);
+  Result := Identity;
+  Result.m11 := Cosine;
+  Result.m12 := Sine;
+  Result.m21 := -Sine;
+  Result.m22 := Cosine;
+end;
+
+class function TMatrix2D.CreateScaling(const AScaleX, AScaleY: Single): TMatrix2D;
+begin
+  Result := Identity;
+  Result.m11 := AScaleX;
+  Result.m22 := AScaleY;
+end;
+
+class function TMatrix2D.CreateTranslation(const ADeltaX, ADeltaY: Single): TMatrix2D;
+begin
+  Result := Identity;
+  Result.m31 := ADeltaX;
+  Result.m32 := ADeltaY;
+end;
+
+class operator TMatrix2D.Multiply(const AMatrix1, AMatrix2: TMatrix2D): TMatrix2D;
+begin
+  Result.m11 := AMatrix1.m11 * AMatrix2.m11 + AMatrix1.m12 * AMatrix2.m21 + AMatrix1.m13 * AMatrix2.m31;
+  Result.m12 := AMatrix1.m11 * AMatrix2.m12 + AMatrix1.m12 * AMatrix2.m22 + AMatrix1.m13 * AMatrix2.m32;
+  Result.m13 := AMatrix1.m11 * AMatrix2.m13 + AMatrix1.m12 * AMatrix2.m23 + AMatrix1.m13 * AMatrix2.m33;
+  Result.m21 := AMatrix1.m21 * AMatrix2.m11 + AMatrix1.m22 * AMatrix2.m21 + AMatrix1.m23 * AMatrix2.m31;
+  Result.m22 := AMatrix1.m21 * AMatrix2.m12 + AMatrix1.m22 * AMatrix2.m22 + AMatrix1.m23 * AMatrix2.m32;
+  Result.m23 := AMatrix1.m21 * AMatrix2.m13 + AMatrix1.m22 * AMatrix2.m23 + AMatrix1.m23 * AMatrix2.m33;
+  Result.m31 := AMatrix1.m31 * AMatrix2.m11 + AMatrix1.m32 * AMatrix2.m21 + AMatrix1.m33 * AMatrix2.m31;
+  Result.m32 := AMatrix1.m31 * AMatrix2.m12 + AMatrix1.m32 * AMatrix2.m22 + AMatrix1.m33 * AMatrix2.m32;
+  Result.m33 := AMatrix1.m31 * AMatrix2.m13 + AMatrix1.m32 * AMatrix2.m23 + AMatrix1.m33 * AMatrix2.m33;
+end;
+
+class operator TMatrix2D.Multiply(const APoint: TPointF; const AMatrix: TMatrix2D): TPointF;
+begin
+  Result.X := APoint.X * AMatrix.m11 + APoint.Y * AMatrix.m21 + AMatrix.m31;
+  Result.Y := APoint.X * AMatrix.m12 + APoint.Y * AMatrix.m22 + AMatrix.m32;
+end;
 
 { Polyline/segment helpers used by Intersect below. All integer math, no
   GDI regions, so this unit stays RTL-portable for the Lazarus port. }

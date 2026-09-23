@@ -20,8 +20,13 @@ unit SVGParse;
 interface
 
 uses
-  System.Types, System.Classes, System.Math.Vectors,
+{$IFDEF FPC}
+  Types, Classes,
   SVGTypes;
+{$ELSE}
+  System.Types, System.Classes,
+  SVGTypes;
+{$ENDIF}
 
 function ParseAngle(const Angle: string): TFloat;
 
@@ -37,13 +42,18 @@ function ParseDRect(const S: string): TRectF;
 
 function ParseURI(const URI: string): string;
 
-function ParseTransform(const ATransform: string): TMatrix;
+function ParseTransform(const ATransform: string): TMatrix2D;
 
 implementation
 
 uses
+{$IFDEF FPC}
+  SysUtils, Math, StrUtils,
+  SVGCommon;
+{$ELSE}
   System.SysUtils, System.Math, System.StrUtils,
   SVGCommon;
+{$ENDIF}
 
 function ParseAngle(const Angle: string): TFloat;
 var
@@ -253,11 +263,11 @@ begin
   end;
 end;
 
-function GetMatrix(const S: string): TMatrix;
+function GetMatrix(const S: string): TMatrix2D;
 var
   SL: TStrings;
 begin
-  Result := TMatrix.Identity;
+  Result := TMatrix2D.Identity;
   SL := GetValues(S, ',');
   try
     if SL.Count = 6 then
@@ -274,7 +284,7 @@ begin
   end;
 end;
 
-function GetTranslate(const S: string): TMatrix;
+function GetTranslate(const S: string): TMatrix2D;
 var
   SL: TStrings;
 begin
@@ -286,14 +296,14 @@ begin
 
     if SL.Count = 2 then
     begin
-      Result := TMatrix.CreateTranslation(StrToTFloat(SL[0]), StrToTFloat(SL[1]));
+      Result := TMatrix2D.CreateTranslation(StrToTFloat(SL[0]), StrToTFloat(SL[1]));
     end;
   finally
     SL.Free;
   end;
 end;
 
-function GetScale(const S: string): TMatrix;
+function GetScale(const S: string): TMatrix2D;
 var
   SL: TStrings;
 begin
@@ -304,14 +314,14 @@ begin
       SL.Add(SL[0]);
     if SL.Count = 2 then
     begin
-      Result := TMatrix.CreateScaling(StrToTFloat(SL[0]), StrToTFloat(SL[1]));
+      Result := TMatrix2D.CreateScaling(StrToTFloat(SL[0]), StrToTFloat(SL[1]));
     end;
   finally
     SL.Free;
   end;
 end;
 
-function GetRotation(const S: string): TMatrix;
+function GetRotation(const S: string): TMatrix2D;
 var
   SL: TStrings;
   X, Y, Angle: TFloat;
@@ -333,12 +343,12 @@ begin
     SL.Free;
   end;
 
-  Result := TMatrix.CreateTranslation(X, Y);
-  Result := TMatrix.CreateRotation(Angle) * Result;
-  Result := TMatrix.CreateTranslation(-X, -Y) * Result;
+  Result := TMatrix2D.CreateTranslation(X, Y);
+  Result := TMatrix2D.CreateRotation(Angle) * Result;
+  Result := TMatrix2D.CreateTranslation(-X, -Y) * Result;
 end;
 
-function GetSkewX(const S: string): TMatrix;
+function GetSkewX(const S: string): TMatrix2D;
 var
   SL: TStrings;
   Angle: TFloat;
@@ -349,7 +359,7 @@ begin
   try
     if SL.Count = 1 then
     begin
-      Result := TMatrix.Identity;
+      Result := TMatrix2D.Identity;
       Angle := ParseAngle(SL[0]);
       Result.m21 := Tan(Angle);
     end;
@@ -358,7 +368,7 @@ begin
   end;
 end;
 
-function GetSkewY(const S: string): TMatrix;
+function GetSkewY(const S: string): TMatrix2D;
 var
   SL: TStrings;
   Angle: TFloat;
@@ -369,7 +379,7 @@ begin
   try
     if SL.Count = 1 then
     begin
-      Result := TMatrix.Identity;
+      Result := TMatrix2D.Identity;
       Angle := ParseAngle(SL[0]);
       Result.m12 := Tan(Angle);
     end;
@@ -378,14 +388,14 @@ begin
   end;
 end;
 
-function ParseTransform(const ATransform: string): TMatrix;
+function ParseTransform(const ATransform: string): TMatrix2D;
 var
   Start: Integer;
   Stop: Integer;
   TType: string;
   Values: string;
   S: string;
-  M: TMatrix;
+  M: TMatrix2D;
 begin
   FillChar(Result, SizeOf(Result), 0);
 

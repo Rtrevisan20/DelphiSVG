@@ -194,7 +194,11 @@ type
 
     { --- raster ------------------------------------------------------------ }
     procedure DrawImage(const Image: TPainterImage; const Dest: TPainterRect;
+{$IFDEF FPC}
+      Options: TPainterImageOptions); override;
+{$ELSE}
       const Options: TPainterImageOptions); override;
+{$ENDIF}
 
     { --- text -------------------------------------------------------------- }
     procedure DrawString(const Text: string; const Font: TPainterFont;
@@ -839,7 +843,7 @@ begin
 end;
 
 procedure TPainterGdiPlus.DrawImage(const Image: TPainterImage;
-  const Dest: TPainterRect; const Options: TPainterImageOptions);
+  const Dest: TPainterRect{$IFDEF FPC}; Options: TPainterImageOptions{$ELSE}; const Options: TPainterImageOptions{$ENDIF});
 var
   I: TPainterGdiPlusImage;
   ImAtt: TGPImageAttributes;

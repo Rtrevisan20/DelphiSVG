@@ -266,7 +266,13 @@ type
 
     { --- raster ------------------------------------------------------------ }
     procedure DrawImage(const Image: TPainterImage; const Dest: TPainterRect;
+{$IFDEF FPC}
+      { FPC 3.2.2 win64 trips "Internal error 2009112505" on a 'const' record
+        holding a single float in a virtual method; pass by value instead. }
+      Options: TPainterImageOptions); virtual; abstract;
+{$ELSE}
       const Options: TPainterImageOptions); virtual; abstract;
+{$ENDIF}
 
     { --- text -------------------------------------------------------------- }
     procedure DrawString(const Text: string; const Font: TPainterFont;

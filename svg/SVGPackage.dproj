@@ -123,7 +123,7 @@
         <DCCReference Include="..\gdip\GDIPKerning.pas"/>
         <DCCReference Include="..\gdip\GDIPOBJ2.pas"/>
         <DCCReference Include="..\gdip\GDIPPathText.pas"/>
-        <DCCReference Include="..\gdip\GDIPUtils.pas"/>
+        <DCCReference Include="..\gdip\GDIPUTIL.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

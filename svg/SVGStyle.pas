@@ -20,7 +20,11 @@ unit SVGStyle;
 interface
 
 uses
+{$IFDEF FPC}
+  Classes, Contnrs;
+{$ELSE}
   System.Classes, System.Contnrs;
+{$ENDIF}
 
 type
   TStyle = class(TObject)
@@ -94,7 +98,11 @@ type
 implementation
 
 uses
+{$IFDEF FPC}
+  SysUtils, StrUtils;
+{$ELSE}
   System.SysUtils, System.StrUtils;
+{$ENDIF}
 
 {$REGION 'TStyle'}
 

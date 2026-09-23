@@ -29,7 +29,11 @@ function StrToTFloat(const S: string): TFloat;
 implementation
 
 uses
+{$IFDEF FPC}
+  SysUtils;
+{$ELSE}
   System.SysUtils;
+{$ENDIF}
 
 function TryStrToTFloat(const S: string; out Value: TFloat): Boolean;
 var

@@ -20,8 +20,13 @@ unit SVGPath;
 interface
 
 uses
+{$IFDEF FPC}
+  Types, Classes,
+  SVGTypes, SVG, Painter;
+{$ELSE}
   System.Types, System.Classes,
   SVGTypes, SVG, Painter;
+{$ENDIF}
 
 type
   TSVGPathElement = class(TSVGObject)
@@ -129,8 +134,20 @@ type
 implementation
 
 uses
+{$IFDEF FPC}
+  SysUtils, Math,
+  SVGCommon, SVGParse;
+{$ELSE}
   System.SysUtils, System.Math,
   SVGCommon, SVGParse;
+{$ENDIF}
+
+{$IFDEF FPC}
+const
+  { Delphi re-exports this helper constant from System.Math (FPC Math
+    does not provide it); used by the elliptical arc code below. }
+  c360 = 360.0;
+{$ENDIF}
 
 // TSVGPathElement
 

@@ -20,7 +20,7 @@ unit SVGColor;
 interface
 
 uses
-  System.UITypes;
+  SVGTypes;
 
 type
   TColorRef = record
@@ -38,7 +38,11 @@ function ConvertColor(Color: TColor; Alpha: Byte): Cardinal;
 implementation
 
 uses
+{$IFDEF FPC}
+  SysUtils;
+{$ELSE}
   System.SysUtils;
+{$ENDIF}
 
 { Builds a COLORREF value (0x00BBGGRR, low byte = red) the same way
   Winapi.Windows.RGB does, so SVGColor stays RTL-portable. }
