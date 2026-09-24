@@ -76,3 +76,6 @@ lazarus/examples/*.bmp
 # IDE local config (Delphi package links)
 packagefiles.xml
 *.obj
+# Phase 5 validation outputs
+lazarus/examples/lcl_renders/
+validation/report/

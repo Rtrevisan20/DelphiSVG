@@ -15,11 +15,16 @@ var
   P: TPainterLCL;
   R: TGPRectF;
   W, H, X, Y, Filled, Total: Integer;
+  Scale: Double;
   FileName: string;
+  OutFile: string;
 begin
   FileName := ParamStr(1);
   if FileName = '' then
     FileName := '..\..\examples\tiger.svg';
+  OutFile := ParamStr(2);
+  if OutFile = '' then
+    OutFile := 'lcltest.bmp';
   if not FileExists(FileName) then
   begin
     Writeln('Arquivo nao encontrado: ', FileName);
@@ -40,10 +45,21 @@ begin
     end;
     W := Round(S.Width);
     H := Round(S.Height);
-    if W <= 0 then W := 400;
-    if H <= 0 then H := 400;
-    if W > 1024 then W := 1024;
-    if H > 1024 then H := 1024;
+    if (W <= 0) or (H <= 0) then
+    begin
+      W := Round(S.ViewBox.Width);
+      H := Round(S.ViewBox.Height);
+    end;
+    if (W <= 0) or (H <= 0) then
+    begin
+      W := 400;
+      H := 400;
+    end;
+    Scale := 1.0;
+    if (W > 1024) or (H > 1024) then
+      Scale := 1024.0 / (W * 1.0);
+    W := Round(W * Scale);
+    H := Round(H * Scale);
 
     Writeln(Format('%s: Loaded, Width=%d Height=%d Count=%d',
       [ExtractFileName(FileName), W, H, S.Count]));
@@ -86,8 +102,8 @@ begin
             Inc(Filled);
         end;
 
-      Bmp.SaveToFile('lcltest.bmp');
-      Writeln(Format('Filled pixels: %d of %d (%.2f%%)', [Filled, Total, Filled * 100.0 / Total]));
+Bmp.SaveToFile(OutFile);
+  Writeln(Format('Filled pixels: %d of %d (%.2f%%)', [Filled, Total, Filled * 100.0 / Total]));
     finally
       Bmp.Free;
     end;
