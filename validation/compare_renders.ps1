@@ -1,10 +1,10 @@
 # Pixel-a-pixel comparison between the Delphi GDI+ baseline renders
 # (baseline\png\*.png) and the Lazarus LCL backend renders
-# (lazarus\examples\lcl_renders\*.bmp). Part of Phase 5.1 validation.
+# (tests\lcl\lcl_renders\*.bmp). Part of Phase 5.1 validation.
 #
 # Usage:
 #   pwsh -File compare_renders.ps1 [-BaselineDir ..\..\baseline\png]
-#                                  [-LclDir ..\..\lazarus\examples\lcl_renders]
+#                                  [-LclDir ..\..\tests\lcl\lcl_renders]
 #                                  [-OutDir ..\report]
 #
 # Per-pixel buckets:
@@ -26,7 +26,7 @@ param(
 
 $Root    = Split-Path -Parent $PSScriptRoot
 if (-not $BaselineDir) { $BaselineDir = Join-Path $Root 'baseline\png' }
-if (-not $LclDir)      { $LclDir      = Join-Path $Root 'lazarus\examples\lcl_renders' }
+if (-not $LclDir)      { $LclDir      = Join-Path $Root 'tests\lcl\lcl_renders' }
 if (-not $OutDir)      { $OutDir      = Join-Path $Root 'validation\report' }
 
 $TolNear = 32

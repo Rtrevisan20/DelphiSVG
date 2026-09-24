@@ -16,7 +16,7 @@ uses
   PainterLCL;
 
 const
-  CExamplesPath = '..\..\examples';
+  CExamplesPath = '..\examples';
   COutputPath = '..\..\validation\report\integration_lcl.csv';
 
 procedure ResolveSize(SVG: TSVG; var W, H: Integer);

@@ -70,12 +70,12 @@ __recovery/
 agents.md
 # FPC/Lazarus build artifacts
 *.dbg
-lazarus/examples/compile_out.txt
-lazarus/examples/*.bmp
+tests/lcl/compile_out.txt
+tests/lcl/*.bmp
 
 # IDE local config (Delphi package links)
 packagefiles.xml
 *.obj
 # Phase 5 validation outputs
-lazarus/examples/lcl_renders/
+tests/lcl/lcl_renders/
 validation/report/

@@ -26,7 +26,7 @@ begin
 end;
 
 const
-  CExamplesPath = '..\..\examples';
+  CExamplesPath = '..\examples';
   COutputPath = '..\..\validation\report\perf_lcl.csv';
   CIter = 5;
 

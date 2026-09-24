@@ -21,7 +21,7 @@ uses
 const
   CPngEncoder: TGUID = '{557CF406-1A04-11D3-9A73-0000F81EF32E}';
   CMaxPixels = 1024;
-  CExamplesPath = '..\examples';
+  CExamplesPath = '..\tests\examples';
   COutputPath = 'png';
 
 function SaveBitmapToFile(Bitmap: TGPBitmap; const AFileName: string): Boolean;

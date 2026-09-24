@@ -33,8 +33,9 @@ function Run-And-Sample($ExePath, $WorkDir, $OutPath) {
 }
 
 $dExe = Join-Path $ExeDir 'PerfTest.exe'
-$lExe = Join-Path $ExeDir 'PerfTestLCL.exe'
-$lWorkDir = Join-Path (Split-Path -Parent $Root) 'lazarus\examples'
+$repoRoot = Split-Path -Parent $Root
+$lExe = Join-Path $repoRoot 'tests\lcl\PerfTestLCL.exe'
+$lWorkDir = Join-Path $repoRoot 'tests\lcl'
 $dCsv = Join-Path $InDir 'perf_delphi.csv'
 $lCsv = Join-Path $InDir 'perf_lcl.csv'
 

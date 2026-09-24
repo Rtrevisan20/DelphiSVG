@@ -138,7 +138,7 @@
                 <Platform value="Win64x">True</Platform>
             </Platforms>
             <Deployment Version="5">
-                <DeployFile LocalName="..\..\..\..\..\Public\Documents\Embarcadero\Studio\18.0\Bpl\SVGImagePackageR.bpl" Configuration="Debug" Class="ProjectOutput"/>
+                <DeployFile LocalName="..\..\..\..\..\..\..\Public\Documents\Embarcadero\Studio\18.0\Bpl\SVGImagePackageR.bpl" Configuration="Debug" Class="ProjectOutput"/>
                 <DeployClass Name="AdditionalDebugSymbols">
                     <Platform Name="OSX32">
                         <Operation>1</Operation>

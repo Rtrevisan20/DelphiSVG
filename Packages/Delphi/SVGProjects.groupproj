@@ -3,7 +3,7 @@
         <ProjectGuid>{740F3D4F-3334-44F6-BC92-84B3F3A6AD9E}</ProjectGuid>
     </PropertyGroup>
     <ItemGroup>
-        <Projects Include="svg\SVGPackage.dproj">
+        <Projects Include="SVGPackage.dproj">
             <Dependencies/>
         </Projects>
         <Projects Include="vcl\svgimage\SVGImagePackageR.dproj">
@@ -30,13 +30,13 @@
         </BorlandProject>
     </ProjectExtensions>
     <Target Name="SVGPackage">
-        <MSBuild Projects="svg\SVGPackage.dproj"/>
+        <MSBuild Projects="SVGPackage.dproj"/>
     </Target>
     <Target Name="SVGPackage:Clean">
-        <MSBuild Projects="svg\SVGPackage.dproj" Targets="Clean"/>
+        <MSBuild Projects="SVGPackage.dproj" Targets="Clean"/>
     </Target>
     <Target Name="SVGPackage:Make">
-        <MSBuild Projects="svg\SVGPackage.dproj" Targets="Make"/>
+        <MSBuild Projects="SVGPackage.dproj" Targets="Make"/>
     </Target>
     <Target Name="SVGImagePackageR">
         <MSBuild Projects="vcl\svgimage\SVGImagePackageR.dproj"/>

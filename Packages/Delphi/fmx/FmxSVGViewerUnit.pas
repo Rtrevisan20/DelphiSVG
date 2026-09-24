@@ -37,7 +37,7 @@ uses System.IOUtils, Winapi.GDIPOBJ, Winapi.GDIPUTIL, Winapi.GDIPAPI, SVGTypes;
 
 {$R *.fmx}
 const
-  CPath = '..\..\..\examples\';
+  CPath = '..\..\..\..\..\tests\examples\';
 
 procedure TForm2.Button1Click(Sender: TObject);
 begin

@@ -21,7 +21,7 @@ uses
   PainterGdiPlus;
 
 const
-  CExamplesPath = '..\..\examples';
+  CExamplesPath = '..\..\tests\examples';
   COutputPath = '..\report\integration_delphi.csv';
 
 function ResolveSize(SVG: TSVG; var W, H: Integer): Boolean;

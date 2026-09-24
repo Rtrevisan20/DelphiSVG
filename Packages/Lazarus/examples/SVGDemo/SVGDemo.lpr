@@ -31,10 +31,10 @@ var
   Cand: array[0..MaxCands - 1] of string;
   I: Integer;
 begin
-  Cand[0] := ExtractFilePath(ParamStr(0)) + '..\..\..\examples\' + Name;
-  Cand[1] := ExtractFilePath(ParamStr(0)) + '..\..\examples\' + Name;
-  Cand[2] := '..\..\..\examples\' + Name;
-  Cand[3] := '..\..\examples\' + Name;
+  Cand[0] := ExtractFilePath(ParamStr(0)) + '..\..\..\..\tests\examples\' + Name;
+  Cand[1] := ExtractFilePath(ParamStr(0)) + '..\..\..\tests\examples\' + Name;
+  Cand[2] := '..\..\..\..\tests\examples\' + Name;
+  Cand[3] := '..\..\tests\examples\' + Name;
   Result := '';
   for I := 0 to MaxCands - 1 do
     if FileExists(Cand[I]) then

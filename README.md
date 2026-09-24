@@ -13,40 +13,51 @@ O mesmo código-fonte roda nas duas IDEs:
 ## Estrutura
 
 ```
-svg\            núcleo portátil (TSVG, parsing XML, paths, cores, texto)
-gdip\           helpers GDI+ (GDIPAPI/GDIPOBJ e amigos — backend Delphi/Windows)
-painter\        camada de abstração TPainter + TPainterGdiPlus + TPainterLCL
-vcl\            componentes Delphi (TSVGImageList, TSVGSpeedButton, editor VCL)
-lcl\            componentes Lazarus equivalentes + editor design-time + ícones
-fmx\            componentes FMX (suspensos no port)
-baseline\       gerador da linha de base de pixels (Delphi/GDI+ → PNG)
-validation\     suíte de validação Fase 5 (comparação pixel/integração/perf)
-lazarus\        pacotes .lpk, exemplos e scripts do lado Lazarus
-examples\       SVGs de teste e demos Delphi
+src\svg\          núcleo portátil (TSVG, parsing XML, paths, cores, texto)
+src\gdip\         helpers GDI+ (GDIPAPI/GDIPOBJ e amigos — backend Delphi/Windows)
+src\painter\      camada de abstração TPainter + TPainterGdiPlus + TPainterLCL
+Packages\Delphi\  pacote Delphi (SVGPackage.dpk/dproj/groupproj) + vcl\ e fmx\
+Packages\Lazarus\ pacotes .lpk (components\, delphisvg.lpk) + scripts e demos LCL
+tests\examples\   SVGs de teste (34 arquivos usados pela suíte)
+tests\lcl\        harnesses e scripts de teste/validação do lado Lazarus
+baseline\         gerador da linha de base de pixels (Delphi/GDI+ → PNG)
+validation\       suíte de validação Fase 5 (comparação pixel/integração/perf)
 ```
+
+Detalhes:
+
+- `src\painter\Painter.pas` — contrato `TPainter` (portável);
+- `src\painter\PainterGdiPlus.pas` — backend GDI+ (Delphi/Lazarus-Windows);
+- `src\painter\PainterLCL.pas` — backend LCL (TCanvas, cross-platform);
+- `Packages\Lazarus\components\` — componentes LCL (`TSVGImage`, `TSVGImageList`,
+  `TSVGSpeedButton`) + editor design-time + ícones;
+- `Packages\Lazarus\packages\` — `delphisvg.lpk` e `delphisvg_dsgn.lpk`;
+- `Packages\Lazarus\examples\SVGDemo\` — demo Lazarus (`.lpi`).
 
 ## Instalação — Delphi
 
-1. Abra `SVGPackage.dpk` (raiz do repositório) no Delphi.
+1. Abra `Packages\Delphi\SVGPackage.dpk` no Delphi.
 2. Compile e instale o package.
 3. Componentes na página **SVG**: `TSVGImageList`, `TSVGSpeedButton`, `TSVGImage`.
-4. Demo: `vcl\SvgViewer.dpr`; linha de base: `baseline\RenderBaseline.dpr`
-   (`dcc32 -B -CC -U"..\svg;..\gdip;..\painter" RenderBaseline.dpr`).
+4. Demo: `Packages\Delphi\vcl\SvgViewer.dpr`; linha de base:
+   `baseline\RenderBaseline.dpr`
+   (`dcc32 -B -CC -U"..\src\svg;..\src\gdip;..\src\painter" RenderBaseline.dpr`).
 
 ## Instalação — Lazarus
 
-1. Instale o pacote de runtime/design `lazarus\packages\delphisvg\delphisvg.lpk`
+1. Instale o pacote de runtime/design `Packages\Lazarus\packages\delphisvg.lpk`
    (Package → Open, Compile + Use) — registra os componentes e o formato de
    arquivo SVG (`TPicture.RegisterFileFormat`).
 2. Para o editor de coleção do `TSVGImageList` no design-time, instale também
-   `lazarus\packages\delphisvg_dsgn\delphisvg_dsgn.lpk`.
-3. Demo: `lazarus\examples\SVGDemo\SVGDemo.lpi`.
-4. Teste de renderização: `lazarus\examples\run_lcltest.bat` /
-   `runall_lcl.bat` (34/34 SVGs).
+   `Packages\Lazarus\packages\delphisvg_dsgn.lpk`.
+3. Demo: `Packages\Lazarus\examples\SVGDemo\SVGDemo.lpi`.
+4. Teste de renderização: `tests\lcl\run_lcltest.bat` / `runall_lcl.bat`
+   (34/34 SVGs).
 
 Notas FPC:
 
-- O search path do package já inclui `$(FPCDir)\units\$(TargetCPU)-$(TargetOS)\vcl-compat`
+- O search path do package já inclui
+  `$(FPCDir)\units\$(TargetCPU)-$(TargetOS)\vcl-compat`
   (necessário para `System.NetEncoding`).
 - As units portáveis usam `{$IFDEF FPC} ... {$ENDIF}` nos `uses` (nomes de unit
   sem namespace); não faça mapeamento manual.
@@ -55,8 +66,8 @@ Notas FPC:
 
 ## Arquitetura
 
-O núcleo `svg\` não conhece GDI+: toda pintura passa pela interface `TPainter`
-(`painter\Painter.pas`). Backends registrados por fábrica/registro em
+O núcleo `src\svg\` não conhece GDI+: toda pintura passa pela interface `TPainter`
+(`src\painter\Painter.pas`). Backends registrados por fábrica/registro em
 `initialization`:
 
 - `TPainterGdiPlus` — Delphi (e Lazarus-Windows se você o linkar);
@@ -76,7 +87,7 @@ Ordem de execução (tudo a partir da raiz, PowerShell/cmd):
 | Etapa | Comando | Saída |
 |---|---|---|
 | Baseline Delphi (26 PNGs) | `cd baseline && RenderBaseline.exe` | `baseline\png\` |
-| Renders LCL (34 BMPs) | `lazarus\examples\run_lclrenders.bat` | `lazarus\examples\lcl_renders\` |
+| Renders LCL (34 BMPs) | `tests\lcl\run_lclrenders.bat` | `tests\lcl\lcl_renders\` |
 | Comparação pixel-a-pixel | `pwsh -File validation\compare_renders.ps1 -DiffImages` | `validation\report\compare_report.txt`, `fidelity.csv`, `diff\*.diff.png` |
 | Integração (2 IDEs) | `validation\run_validation.bat` | `validation\report\integration_report.txt` |
 | Performance/memória | `pwsh -File validation\run_perf.ps1` | `validation\report\perf_report.txt` |

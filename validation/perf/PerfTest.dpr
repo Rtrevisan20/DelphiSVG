@@ -20,7 +20,7 @@ uses
   PainterGdiPlus;
 
 const
-  CExamplesPath = '..\..\examples';
+  CExamplesPath = '..\..\tests\examples';
   COutputPath = '..\report\perf_delphi.csv';
   CIter = 5;
 

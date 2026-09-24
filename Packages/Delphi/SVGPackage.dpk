@@ -1,0 +1,55 @@
+package SVGPackage;
+
+{$R *.res}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE DEBUG}
+{$ENDIF IMPLICITBUILDING}
+{$DESCRIPTION 'MWK - SVG'}
+{$IMPLICITBUILD OFF}
+
+requires
+  rtl,
+  xmlrtl;
+
+contains
+  SVG in '..\..\src\svg\SVG.pas',
+  SVGColor in '..\..\src\svg\SVGColor.pas',
+  SVGPaint in '..\..\src\svg\SVGPaint.pas',
+  SVGParse in '..\..\src\svg\SVGParse.pas',
+  SVGPath in '..\..\src\svg\SVGPath.pas',
+  SVGProperties in '..\..\src\svg\SVGProperties.pas',
+  SVGStyle in '..\..\src\svg\SVGStyle.pas',
+  SVGTypes in '..\..\src\svg\SVGTypes.pas',
+  SVGCommon in '..\..\src\svg\SVGCommon.pas',
+  SVGXML in '..\..\src\svg\SVGXML.pas',
+  GDIPAPI in '..\..\src\gdip\GDIPAPI.pas',
+  GDIPOBJ in '..\..\src\gdip\GDIPOBJ.pas',
+  GDIPUTIL in '..\..\src\gdip\GDIPUTIL.pas',
+  GDIPKerning in '..\..\src\gdip\GDIPKerning.pas',
+  GDIPOBJ2 in '..\..\src\gdip\GDIPOBJ2.pas',
+  GDIPPathText in '..\..\src\gdip\GDIPPathText.pas',
+  Painter in '..\..\src\painter\Painter.pas',
+  PainterGdiPlus in '..\..\src\painter\PainterGdiPlus.pas';
+
+end.

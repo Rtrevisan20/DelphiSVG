@@ -8,7 +8,7 @@
       <Version Value="11"/>
       <PathDelim Value="\"/>
       <SearchPaths>
-        <OtherUnitFiles Value="..\..\gdip;$(FPCDir)\units\$(TargetCPU)-$(TargetOS)\vcl-compat"/>
+        <OtherUnitFiles Value="..\..\..\src\gdip;$(FPCDir)\units\$(TargetCPU)-$(TargetOS)\vcl-compat"/>
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)\$(LCLWidgetType)"/>
       </SearchPaths>
       <Parsing>
@@ -22,100 +22,100 @@
     </CompilerOptions>
     <Files Count="24">
       <Item1>
-        <Filename Value="..\..\svg\SVG.pas"/>
+        <Filename Value="..\..\..\src\svg\SVG.pas"/>
         <UnitName Value="SVG"/>
       </Item1>
       <Item2>
-        <Filename Value="..\..\svg\SVGColor.pas"/>
+        <Filename Value="..\..\..\src\svg\SVGColor.pas"/>
         <UnitName Value="SVGColor"/>
       </Item2>
       <Item3>
-        <Filename Value="..\..\svg\SVGPaint.pas"/>
+        <Filename Value="..\..\..\src\svg\SVGPaint.pas"/>
         <UnitName Value="SVGPaint"/>
       </Item3>
       <Item4>
-        <Filename Value="..\..\svg\SVGParse.pas"/>
+        <Filename Value="..\..\..\src\svg\SVGParse.pas"/>
         <UnitName Value="SVGParse"/>
       </Item4>
       <Item5>
-        <Filename Value="..\..\svg\SVGPath.pas"/>
+        <Filename Value="..\..\..\src\svg\SVGPath.pas"/>
         <UnitName Value="SVGPath"/>
       </Item5>
       <Item6>
-        <Filename Value="..\..\svg\SVGProperties.pas"/>
+        <Filename Value="..\..\..\src\svg\SVGProperties.pas"/>
         <UnitName Value="SVGProperties"/>
       </Item6>
       <Item7>
-        <Filename Value="..\..\svg\SVGStyle.pas"/>
+        <Filename Value="..\..\..\src\svg\SVGStyle.pas"/>
         <UnitName Value="SVGStyle"/>
       </Item7>
       <Item8>
-        <Filename Value="..\..\svg\SVGTypes.pas"/>
+        <Filename Value="..\..\..\src\svg\SVGTypes.pas"/>
         <UnitName Value="SVGTypes"/>
       </Item8>
       <Item9>
-        <Filename Value="..\..\svg\SVGCommon.pas"/>
+        <Filename Value="..\..\..\src\svg\SVGCommon.pas"/>
         <UnitName Value="SVGCommon"/>
       </Item9>
       <Item10>
-        <Filename Value="..\..\svg\SVGXML.pas"/>
+        <Filename Value="..\..\..\src\svg\SVGXML.pas"/>
         <UnitName Value="SVGXML"/>
       </Item10>
       <Item11>
-        <Filename Value="..\..\gdip\GDIPAPI.pas"/>
+        <Filename Value="..\..\..\src\gdip\GDIPAPI.pas"/>
         <UnitName Value="GDIPAPI"/>
       </Item11>
       <Item12>
-        <Filename Value="..\..\gdip\GDIPOBJ.pas"/>
+        <Filename Value="..\..\..\src\gdip\GDIPOBJ.pas"/>
         <UnitName Value="GDIPOBJ"/>
       </Item12>
       <Item13>
-        <Filename Value="..\..\gdip\GDIPUTIL.pas"/>
+        <Filename Value="..\..\..\src\gdip\GDIPUTIL.pas"/>
         <UnitName Value="GDIPUTIL"/>
       </Item13>
       <Item14>
-        <Filename Value="..\..\gdip\GDIPKerning.pas"/>
+        <Filename Value="..\..\..\src\gdip\GDIPKerning.pas"/>
         <UnitName Value="GDIPKerning"/>
       </Item14>
       <Item15>
-        <Filename Value="..\..\gdip\GDIPOBJ2.pas"/>
+        <Filename Value="..\..\..\src\gdip\GDIPOBJ2.pas"/>
         <UnitName Value="GDIPOBJ2"/>
       </Item15>
       <Item16>
-        <Filename Value="..\..\gdip\GDIPPathText.pas"/>
+        <Filename Value="..\..\..\src\gdip\GDIPPathText.pas"/>
         <UnitName Value="GDIPPathText"/>
       </Item16>
       <Item17>
-        <Filename Value="..\..\painter\Painter.pas"/>
+        <Filename Value="..\..\..\src\painter\Painter.pas"/>
         <UnitName Value="Painter"/>
       </Item17>
       <Item18>
-        <Filename Value="..\..\painter\PainterGdiPlus.pas"/>
+        <Filename Value="..\..\..\src\painter\PainterGdiPlus.pas"/>
         <UnitName Value="PainterGdiPlus"/>
       </Item18>
       <Item19>
-        <Filename Value="..\..\painter\PainterLCL.pas"/>
+        <Filename Value="..\..\..\src\painter\PainterLCL.pas"/>
         <UnitName Value="PainterLCL"/>
       </Item19>
       <Item20>
-        <Filename Value="..\..\lcl\SVGImageList.pas"/>
+        <Filename Value="..\components\SVGImageList.pas"/>
         <UnitName Value="SVGImageList"/>
       </Item20>
       <Item21>
-        <Filename Value="..\..\lcl\SVGImage.pas"/>
+        <Filename Value="..\components\SVGImage.pas"/>
         <UnitName Value="SVGImage"/>
       </Item21>
       <Item22>
-        <Filename Value="..\..\lcl\SVGSpeedButton.pas"/>
+        <Filename Value="..\components\SVGSpeedButton.pas"/>
         <UnitName Value="SVGSpeedButton"/>
       </Item22>
       <Item23>
-        <Filename Value="..\..\lcl\SVGImageRegister.pas"/>
+        <Filename Value="..\components\SVGImageRegister.pas"/>
         <HasRegisterProc Value="True"/>
         <UnitName Value="SVGImageRegister"/>
       </Item23>
       <Item24>
-        <Filename Value="..\..\lcl\svgicons.lrs"/>
+        <Filename Value="..\components\svgicons.lrs"/>
       </Item24>
     </Files>
     <RequiredPkgs Count="2">

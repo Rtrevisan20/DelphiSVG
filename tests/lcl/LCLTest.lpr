@@ -21,7 +21,7 @@ var
 begin
   FileName := ParamStr(1);
   if FileName = '' then
-    FileName := '..\..\examples\tiger.svg';
+    FileName := '..\examples\tiger.svg';
   OutFile := ParamStr(2);
   if OutFile = '' then
     OutFile := 'lcltest.bmp';

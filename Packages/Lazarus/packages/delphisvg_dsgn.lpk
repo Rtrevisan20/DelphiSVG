@@ -21,7 +21,7 @@
     </CompilerOptions>
     <Files Count="1">
       <Item1>
-        <Filename Value="..\..\lcl\SVGImgLstEditor.pas"/>
+        <Filename Value="..\components\SVGImgLstEditor.pas"/>
         <HasRegisterProc Value="True"/>
         <UnitName Value="SVGImgLstEditor"/>
       </Item1>
