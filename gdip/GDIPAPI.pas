@@ -49,7 +49,11 @@ uses
   Math,
   Windows,ActiveX,
   {$ENDIF}
-  DirectDraw;
+  {$IFDEF UNIT_SCOPE_NAMES}
+  WinApi.DirectDraw
+  {$ELSE}
+  DirectDraw
+  {$ENDIF};
 
 type
   INT16   = type Smallint;

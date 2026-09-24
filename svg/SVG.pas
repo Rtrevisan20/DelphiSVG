@@ -258,8 +258,6 @@ type
 
     procedure SetSVGOpacity(Opacity: TFloat);
     procedure SetAngle(Angle: TFloat);
-    procedure Paint(const Graphics: TPainter; Rects: PRectArray;
-      RectCount: Integer);
     procedure CalcCompleteSize;
   private
     FStyles: TStyleList;
@@ -290,6 +288,8 @@ type
 
     procedure SetBounds(const Bounds: TGPRectF);
     procedure Scale(const ADX: TFloat; ADY: TFloat = -1);
+    procedure Paint(const Graphics: TPainter; Rects: PRectArray;
+      RectCount: Integer);
     procedure PaintTo(DC: HDC; Bounds: TGPRectF;
       Rects: PRectArray; RectCount: Integer); overload;
     procedure PaintTo(MetaFile: TGPMetaFile; Bounds: TGPRectF;

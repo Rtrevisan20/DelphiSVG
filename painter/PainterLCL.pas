@@ -136,12 +136,13 @@ type
 
   TPainterLCLFont = class(TPainterFont)
   private
-    FFamily: TPainterFontFamily;
+    FFamilyName: string;
     FSize: Single;
     FStyle: TPainterFontStyle;
   public
     constructor Create(const Family: TPainterFontFamily; const Size: Single;
       const Style: TPainterFontStyle); reintroduce;
+    property FName: string read FFamilyName;
   end;
 
   TPainterLCLImage = class(TPainterImage)
@@ -255,6 +256,32 @@ type
     function GetPathLength(const Path: TPainterPath): Single; override;
   end;
 
+  { LCL measurement service used at parse time (before any canvas exists).
+    Uses a lazy internal TCanvas for font metrics and builds placeholder glyph
+    boxes into TPainterLCLPath (same limitation as TPainterLCL.AddTextToPath).
+    Registered by this unit so <text> SVG nodes never hit an unassigned
+    PainterMeasure when only the LCL backend is linked. }
+  TPainterMeasureLCL = class(TPainterMeasure)
+  public
+    function CreateFontFamily(const AName: string): TPainterFontFamily; override;
+    function CreateFont(const Family: TPainterFontFamily; const Size: Single;
+      const Style: TPainterFontStyle): TPainterFont; override;
+    function MeasureText(const Text: string; const Font: TPainterFont): Single; override;
+    procedure MeasureString(const Text: string; const Font: TPainterFont;
+      const Origin: TPainterPoint; const Format: TPainterTextFormat;
+      var Rect: TPainterRect); override;
+    procedure AddTextToPath(const Path, UPath, SPath: TPainterPath;
+      const Text: string; const Family: TPainterFontFamily;
+      const Style: TPainterFontStyle; const Size: Single;
+      const Origin: TPainterPoint; const Format: TPainterTextFormat); override;
+    function AddPathText(const Path, GuidePath: TPainterPath;
+      const Text: string; const Family: TPainterFontFamily;
+      const Style: TPainterFontStyle; const Size: Single;
+      const Format: TPainterTextFormat; const Indent: Single;
+      const HasMatrix: Boolean; const AdditionalMatrix: TPainterMatrix): Single; override;
+    function GetPathLength(const Path: TPainterPath): Single; override;
+  end;
+
 function PathToRegion(const APath: TPainterLCLPath; const AM: TPainterMatrix): HRGN;
 
 implementation
@@ -289,6 +316,25 @@ function ToTPoint(const P: TPainterPoint): TPoint;
 begin
   Result.X := Round(P.X);
   Result.Y := Round(P.Y);
+end;
+
+{ Applies an SVG font spec (family/size/style) to an LCL font. Shared by the
+  painter (render time) and the measure service (parse time). }
+procedure ApplyFontStyle(const ACanvas: TCanvas; const Family: string;
+  const Size: Single; const Style: TPainterFontStyle);
+begin
+  ACanvas.Font.Name := Family;
+  if Size > 0 then
+    ACanvas.Font.Height := -Round(Size);
+  ACanvas.Font.Style := [];
+  if pfsBold in Style then
+    ACanvas.Font.Style := ACanvas.Font.Style + [fsBold];
+  if pfsItalic in Style then
+    ACanvas.Font.Style := ACanvas.Font.Style + [fsItalic];
+  if pfsUnderline in Style then
+    ACanvas.Font.Style := ACanvas.Font.Style + [fsUnderline];
+  if pfsStrikeout in Style then
+    ACanvas.Font.Style := ACanvas.Font.Style + [fsStrikeOut];
 end;
 
 { Converts a figure into an integer polygon (device space). }
@@ -628,12 +674,15 @@ end;
 
 function TPainterLCLFontFamily.GetCellAscent(const Style: TPainterFontStyle): Integer;
 begin
-  Result := 0;
+  { Design-unit ratio for the placeholder text metrics. The svg\ core divides
+    CellAscent by EmHeight to get the ascent factor (0.8 for most fonts), so
+    the absolute values only matter through their quotient. }
+  Result := 800;
 end;
 
 function TPainterLCLFontFamily.GetEmHeight(const Style: TPainterFontStyle): Integer;
 begin
-  Result := 0;
+  Result := 1000;
 end;
 
 { ------------------------------------------------------------------------------ }
@@ -644,7 +693,10 @@ constructor TPainterLCLFont.Create(const Family: TPainterFontFamily;
   const Size: Single; const Style: TPainterFontStyle);
 begin
   inherited Create(Family, Size, Style);
-  FFamily := Family;
+  if Family is TPainterLCLFontFamily then
+    FFamilyName := TPainterLCLFontFamily(Family).FName
+  else
+    FFamilyName := '';
   FSize := Size;
   FStyle := Style;
 end;
@@ -1072,18 +1124,7 @@ end;
 procedure TPainterLCL.SetFont(const Family: string; const Size: Single;
   const Style: TPainterFontStyle);
 begin
-  FCanvas.Font.Name := Family;
-  if Size > 0 then
-    FCanvas.Font.Height := -Round(Size);
-  FCanvas.Font.Style := [];
-  if pfsBold in Style then
-    FCanvas.Font.Style := FCanvas.Font.Style + [fsBold];
-  if pfsItalic in Style then
-    FCanvas.Font.Style := FCanvas.Font.Style + [fsItalic];
-  if pfsUnderline in Style then
-    FCanvas.Font.Style := FCanvas.Font.Style + [fsUnderline];
-  if pfsStrikeout in Style then
-    FCanvas.Font.Style := FCanvas.Font.Style + [fsStrikeOut];
+  ApplyFontStyle(FCanvas, Family, Size, Style);
 end;
 
 procedure TPainterLCL.SetPen(const Pen: TPainterPen);
@@ -1426,7 +1467,7 @@ begin
   else
     Col := $FF000000;
   FCanvas.Brush.Style := bsClear;
-  SetFont((F.FFamily as TPainterLCLFontFamily).FName, F.FSize, F.FStyle);
+  SetFont(F.FName, F.FSize, F.FStyle);
   FCanvas.Font.Color := ToTColor(Col);
   O := MatrixTransformPoint(FMatrix, Origin);
   FCanvas.TextOut(Round(O.X), Round(O.Y), Text);
@@ -1441,7 +1482,7 @@ var
   O: TPainterPoint;
 begin
   F := Font as TPainterLCLFont;
-  SetFont((F.FFamily as TPainterLCLFontFamily).FName, F.FSize, F.FStyle);
+  SetFont(F.FName, F.FSize, F.FStyle);
   S := FCanvas.TextExtent(Text);
   O := MatrixTransformPoint(FMatrix, Origin);
   Rect := Painter.MakeRect(O.X, O.Y, S.cx, S.cy);
@@ -1454,7 +1495,7 @@ var
   S: TSize;
 begin
   F := Font as TPainterLCLFont;
-  SetFont((F.FFamily as TPainterLCLFontFamily).FName, F.FSize, F.FStyle);
+  SetFont(F.FName, F.FSize, F.FStyle);
   S := FCanvas.TextExtent(Text);
   Result := S.cx;
 end;
@@ -1483,13 +1524,11 @@ begin
   end;
 end;
 
-function TPainterLCL.GetPathLength(const Path: TPainterPath): Single;
+function GetLCLPathLength(const DP: TPainterLCLPath): Single;
 var
-  DP: TPainterLCLPath;
   I: Integer;
   X, Y, X2, Y2: Single;
 begin
-  DP := Path as TPainterLCLPath;
   Result := 0;
   X := 0;
   Y := 0;
@@ -1521,5 +1560,150 @@ begin
     end;
   end;
 end;
+
+function TPainterLCL.GetPathLength(const Path: TPainterPath): Single;
+begin
+  Result := GetLCLPathLength(Path as TPainterLCLPath);
+end;
+
+{ --- parse-time measure service (backend LCL) ----------------------------------- }
+
+var
+  FMeasureBmp: TBitmap = nil;
+
+function MeasureCanvas: TCanvas;
+begin
+  if FMeasureBmp = nil then
+  begin
+    FMeasureBmp := TBitmap.Create;
+    FMeasureBmp.Width := 4;
+    FMeasureBmp.Height := 4;
+  end;
+  Result := FMeasureBmp.Canvas;
+end;
+
+function TPainterMeasureLCL.CreateFontFamily(
+  const AName: string): TPainterFontFamily;
+begin
+  Result := TPainterLCLFontFamily.Create(AName);
+end;
+
+function TPainterMeasureLCL.CreateFont(const Family: TPainterFontFamily;
+  const Size: Single; const Style: TPainterFontStyle): TPainterFont;
+begin
+  Result := TPainterLCLFont.Create(Family, Size, Style);
+end;
+
+function TPainterMeasureLCL.MeasureText(const Text: string;
+  const Font: TPainterFont): Single;
+var
+  F: TPainterLCLFont;
+begin
+  F := Font as TPainterLCLFont;
+  ApplyFontStyle(MeasureCanvas, F.FName, F.FSize, F.FStyle);
+  Result := MeasureCanvas.TextExtent(Text).cx;
+end;
+
+procedure TPainterMeasureLCL.MeasureString(const Text: string;
+  const Font: TPainterFont; const Origin: TPainterPoint;
+  const Format: TPainterTextFormat; var Rect: TPainterRect);
+var
+  F: TPainterLCLFont;
+  S: TSize;
+begin
+  F := Font as TPainterLCLFont;
+  ApplyFontStyle(MeasureCanvas, F.FName, F.FSize, F.FStyle);
+  S := MeasureCanvas.TextExtent(Text);
+  Rect := Painter.MakeRect(Origin.X, Origin.Y, S.cx, S.cy);
+end;
+
+procedure TPainterMeasureLCL.AddTextToPath(const Path, UPath, SPath: TPainterPath;
+  const Text: string; const Family: TPainterFontFamily;
+  const Style: TPainterFontStyle; const Size: Single;
+  const Origin: TPainterPoint; const Format: TPainterTextFormat);
+var
+  FF: TPainterLCLFontFamily;
+  DP, UP, SP: TPainterLCLPath;
+  I: Integer;
+  CX, W: Single;
+begin
+  if Text = '' then
+    Exit;
+  FF := Family as TPainterLCLFontFamily;
+  DP := Path as TPainterLCLPath;
+  UP := UPath as TPainterLCLPath;
+  SP := SPath as TPainterLCLPath;
+  ApplyFontStyle(MeasureCanvas, FF.FName, Size, Style);
+  W := MeasureCanvas.TextExtent(Text).cx;
+  if (pfsUnderline in Style) and Assigned(UP) then
+    UP.AddRectangle(Painter.MakeRect(Origin.X, Origin.Y + Size * 0.8, W,
+      Size * 0.1));
+  if (pfsStrikeout in Style) and Assigned(SP) then
+    SP.AddRectangle(Painter.MakeRect(Origin.X, Origin.Y + Size * 0.5, W,
+      Size * 0.1));
+  CX := Origin.X;
+  for I := 1 to Length(Text) do
+  begin
+    W := MeasureCanvas.TextWidth(Text[I]);
+    DP.AddTextBox(Text[I], CX, Origin.Y, Size, W);
+    CX := CX + W;
+  end;
+end;
+
+function TPainterMeasureLCL.AddPathText(const Path, GuidePath: TPainterPath;
+  const Text: string; const Family: TPainterFontFamily;
+  const Style: TPainterFontStyle; const Size: Single;
+  const Format: TPainterTextFormat; const Indent: Single;
+  const HasMatrix: Boolean; const AdditionalMatrix: TPainterMatrix): Single;
+var
+  DP: TPainterLCLPath;
+begin
+  if Text = '' then
+  begin
+    Result := 0;
+    Exit;
+  end;
+  DP := Path as TPainterLCLPath;
+  { Placeholder: glyph boxes laid out from Indent in local coordinates (no
+    curved text following on LCL). The caller advances by the returned width. }
+  DP.AddString(Text, Family, Style, Size, Format);
+  Result := GetLCLPathLength(DP); // width of the placeholder boxes
+  { Give the boxes the guide-path offset so textPath has a visible anchor. }
+  DP.Transform(MakeMatrix(1, 0, 0, 1, Indent, 0));
+end;
+
+function TPainterMeasureLCL.GetPathLength(const Path: TPainterPath): Single;
+begin
+  if Assigned(Path) then
+    Result := GetLCLPathLength(Path as TPainterLCLPath)
+  else
+    Result := 0;
+end;
+
+{ --- parse-time path factory (backend LCL) ----------------------------------- }
+
+function CreateLCLLPath: TPainterPath;
+begin
+  Result := TPainterLCLPath.Create;
+end;
+
+{ --- parse-time image factory (backend LCL) ----------------------------------- }
+
+function CreateLCLLImage(const Stream: TStream): TPainterImage;
+begin
+  Result := TPainterLCLImage.CreateFromStream(Stream);
+end;
+
+initialization
+  RegisterPainterMeasure(TPainterMeasureLCL.Create);
+  RegisterPainterPathFactory(CreateLCLLPath);
+  RegisterPainterImageFactory(CreateLCLLImage);
+
+finalization
+  RegisterPainterImageFactory(nil);
+  RegisterPainterPathFactory(nil);
+  RegisterPainterMeasure(nil);
+  FMeasureBmp.Free;
+  FMeasureBmp := nil;
 
 end.

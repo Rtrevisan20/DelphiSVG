@@ -68,3 +68,11 @@ __recovery/
 
 # Plano de trabalho do port (documento local dos agentes)
 agents.md
+# FPC/Lazarus build artifacts
+*.dbg
+lazarus/examples/compile_out.txt
+lazarus/examples/*.bmp
+
+# IDE local config (Delphi package links)
+packagefiles.xml
+*.obj

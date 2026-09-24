@@ -23,7 +23,7 @@ unit GDIPUTIL;
 
 interface
 uses
-  Windows,
+  Winapi.Windows,
   GDIPAPI,
   GDIPOBJ;
 

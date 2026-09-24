@@ -1,4 +1,4 @@
-      {******************************************************************}
+﻿      {******************************************************************}
       { GDI+ Class                                                       }
       {                                                                  }
       { home page : http://www.progdigy.com                              }
@@ -38,7 +38,11 @@ uses
   {$ELSE}
   Windows,ActiveX,
   {$ENDIF}
+  {$IFDEF UNIT_SCOPE_NAMES}
+  WinApi.DirectDraw,
+  {$ELSE}
   DirectDraw,
+  {$ENDIF}
   GDIPAPI;
 
 (**************************************************************************\
